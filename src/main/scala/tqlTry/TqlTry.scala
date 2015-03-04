@@ -1,17 +1,32 @@
-/**
- * Created by Eric on 20.10.2014.
- */
+package tqlTry
 
+import tql._
 import scala.meta.tql.ScalaMetaTraverser._
-import scala.meta.internal.ast._
-import scala.meta.ui._
-import scala.meta.syntactic._
-import scala.language.reflectiveCalls
+//import scala.meta._
 import scala.meta.dialects.Scala211
 
-object Example extends App {
+import scala.meta.internal.ast._
+//import scala.meta.ui._
+import scala.meta.syntactic._
+import scala.language.reflectiveCalls
 
 
+//trait Monoid[A]{
+//  def zero : A
+//  def append(a: A, b: A): A
+//}
+
+class IntMono extends tql.Monoid[Int] {
+  def zero = 0
+  def append(a: Int, b: Int) = a + b
+}
+//def children[A : Monoid](f: Matcher[A]): Matcher[A]
+
+
+object TqlTry extends App {
+  
+
+// ###SCALA META###
   val x =
     q"""
        val a = 5
@@ -19,7 +34,32 @@ object Example extends App {
        """
     println(x)
   
-  //val y = x | children(topDownBreak[A](x))
+  def topDown[A : Monoid](m: Matcher[A]): Matcher[A] =
+    m + children(topDown[A](m))
+  
+  //case x: scala.meta.internal.ast.Lit.Int
+    
+  val c = x.collect {
+    case x: Lit.Int => 
+      println("" + x.value + " : " + x)
+      x
+    case x: Term.Name =>
+      x
+    case x: Defn.Val =>
+      x
+  }
+  
+ // def typeOf(Tree: tree, env: Map[]) = tree match
+  println(c)
+  
+// ###INT LIST###
+  val intlist = List(1,2,3,4,5)
+  
+  val coll = intlist.collect{case x:Int if x % 2 == 0 => x}
+  
+  println(coll)
+  
+  
   val t1: List[Int] = x.collect{case Lit.Int(a) if a > 10 => a}
   println(t1)
 
