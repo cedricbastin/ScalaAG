@@ -1,6 +1,6 @@
 package agPC
 
-import scala.collection.immutable.{Set, ListSet}
+import scala.collection.immutable.Set
 
 abstract class Type {
   def collectTV: Set[String]

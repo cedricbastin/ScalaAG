@@ -6,12 +6,15 @@ class TwoPhaseInferencer extends TypeInferencers {
   type Constraint = (Type, Type) //(type Var, expected Type)
   val noConstraints: List[Constraint] = Nil
 
-  case class TypingResult(tpe: Type, c: List[Constraint])
+  case class TypingResult(tpe: Type, c: List[Constraint]) extends Term //added extend
+  type TR = TypingResult
 
   /** Type <code>t</code> in <code>env</code> and return its type and a
    *  constraint list.
    */
   def collect(env: Env, t: Term): TypingResult = t match {
+    case tr: TR => tr
+
     case True | False => TypingResult(TypeBool, noConstraints)
     case Zero => TypingResult(TypeNat, noConstraints)
     
@@ -20,25 +23,44 @@ class TwoPhaseInferencer extends TypeInferencers {
       if (t1 == null)
         throw TypeError("Unknown variable " + x)
       TypingResult(t1.instantiate, noConstraints)
-    
+
+    case Succ(tr:TR) =>
+      println("succtr")
+      TypingResult(TypeNat, (tr.tpe, TypeNat) :: tr.c)
+
     case Succ(t1) =>
       val TypingResult(ty, const) = collect(env, t1)
       TypingResult(TypeNat, (ty, TypeNat) :: const)
-    
+
+    case Pred(tr:TR) =>
+      println("predtr")
+      TypingResult(TypeNat, (tr.tpe, TypeNat) :: tr.c)
+
     case Pred(t1) =>
       val TypingResult(ty, const) = collect(env, t1)
       TypingResult(TypeNat, (ty, TypeNat) :: const)
+
+    case IsZero(tr:TR) =>
+      println("iszerotr")
+      TypingResult(TypeBool, (tr.tpe, TypeNat) :: tr.c)
     
     case IsZero(t1) =>
       val TypingResult(ty, const) = collect(env, t1)
       TypingResult(TypeBool, (ty, TypeNat) :: const)
-    
+
+    case If(trc:TR, tr1:TR, tr2:TR) =>
+      println("iftr")
+      TypingResult(tr2.tpe, (trc.tpe ,TypeBool)::(tr1.tpe, tr2.tpe)::trc.c:::tr1.c:::tr2.c)
+
     case If(cond, t1, t2) =>
       val TypingResult(tcond, const) = collect(env, cond)
       val TypingResult(ty1, const1) = collect(env, t1)
       val TypingResult(ty2, const2) = collect(env, t2)
       TypingResult(ty2, (tcond ,TypeBool)::(ty1, ty2)::const:::const1:::const2)
-      
+
+    //case Abs(v:String, tp:TypeTree, t:tr) =>
+      //env need to be calculated and given to the type inference of t!!!
+
     case Abs(v: String, tp: TypeTree, t: Term) => 
       /**If the type for abs is not specified, we create a new TypeVar*/
       val tpsch = TypeScheme(Nil, if (tp != EmptyType) toType(tp) else Type.factorFresh) 
@@ -97,6 +119,11 @@ class TwoPhaseInferencer extends TypeInferencers {
       case (t1, t2) =>
         throw TypeError("Could not unify: " + t1 + " with " + t2)
     }
+  }
+
+  def typeOfTR(tr: TypingResult): Type = {
+    val s = unify(tr.c)
+    s(tr.tpe)
   }
 
   override def typeOf(t: Term): Type = try {
