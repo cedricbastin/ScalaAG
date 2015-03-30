@@ -11,12 +11,12 @@ import scala.util.parsing.combinator.syntactical.StandardTokenParsers
  */
 object ADPInfer extends scala.App {
   trait Signature {
-    type Alphabet // FIXME: input type
-    type Answer // output type
+    //type Alphabet
+    type Answer //top down, bottom up or both
+    def addToEnv[E](a:Answer, e:E): Answer
   }
 
-  trait TypingSig extends Signature {
-    //type Alphabet
+  trait StlcSig extends Signature {
     def tru: Answer
     def fals: Answer
 
@@ -34,7 +34,7 @@ object ADPInfer extends scala.App {
     def app(a1: Answer, a2: Answer): Answer
   }
 
-  trait TypingGrammar extends StandardTokenParsers with TypingSig {
+  trait TypingGrammar extends StandardTokenParsers with StlcSig {
     lexical.delimiters ++= List("(", ")", "\\", ".", ":", "=", "->", "{", "}", ",", "*", "+")
     lexical.reserved ++= List("Bool", "Nat", "true", "false", "if", "then", "else", "succ", "pred", "iszero", "let", "in")
 
@@ -64,9 +64,13 @@ object ADPInfer extends scala.App {
         vari(x, a)
       } | ("\\" ~ ident ~ opt(":" ~ Type)).flatMap {
         case "\\" ~ x ~ Some(":" ~ tp) =>
-          ("." ~> Term) ^^ { case a => abs(x, tp, a)}
+          val ts = TypeScheme(Nil, if (tp != EmptyType) toType(tp) else agPC.Type.factorFresh) //always nonempty?
+          implicit val newA = addToEnv(a, (x, ts))
+          ("." ~> Term(newA)) ^^ { case a => abs(x, tp, a)}
         case "\\" ~ x ~ None =>
-          ("." ~> Term) ^^ { case a => abs(x, EmptyType, a)}
+          val ts = TypeScheme(Nil, agPC.Type.factorFresh)
+          implicit val newA = addToEnv(a, (x, ts))
+          ("." ~> Term(newA)) ^^ { case a => abs(x, EmptyType, a)}
       } | "let" ~ ident ~ "=" ~ Term ~ "in" ~ Term ^^ {
         case "let" ~ x ~ "=" ~ t1 ~ "in" ~ t2 => let(x, t1, t2)
       } | "(" ~> Term <~ ")" ^^ {
@@ -86,7 +90,7 @@ object ADPInfer extends scala.App {
     )
   }
 
-  trait ParsingAlgebra extends TypingSig {
+  trait ParsingAlgebra extends StlcSig {
     type Answer = Term //no env needed
     def tru = True
     def fals = False
@@ -105,20 +109,23 @@ object ADPInfer extends scala.App {
     def app(a1: Answer, a2: Answer) = App(a1, a2)
   }
 
-  trait TypingAlgebra extends TypingSig {
-    type Env = List[(String, TypeScheme)]
-    case class Answer(env: Env, tr: TypingResult)
-    val defAns = Answer(Nil, TypingResult(TypeBool, noConstraints))
-    //type Answer = Ans
-
+  trait TypingAlgebra extends StlcSig { //collect reformulated
+    type EnvElem = (String, TypeScheme)
+    type Env = List[EnvElem]
     type Constraint = (Type, Type)
-    //(type Var, expected Type)
+
+    //env = top down
+    //tr = bottom up
+    case class Answer(env: Env, tr: TypingResult)
+
+    val noEnv = Nil
     val noConstraints: List[Constraint] = Nil
-    //TypingResult(tpe, c)
+    val defAns = Answer(Nil, TypingResult(TypeBool, noConstraints))
+
     val tru =
-      Answer(Nil, TypingResult(TypeBool, noConstraints))
+      Answer(noEnv, TypingResult(TypeBool, noConstraints))
     val fals =
-      Answer(Nil, TypingResult(TypeBool, noConstraints))
+      Answer(noEnv, TypingResult(TypeBool, noConstraints))
 
     def vari(s:String, a:Answer) = {
       val t1: TypeScheme = lookup(a.env, s)
@@ -127,26 +134,27 @@ object ADPInfer extends scala.App {
       Answer(a.env, TypingResult(t1.instantiate, noConstraints))
     }
 
-    def num(s: String) =
+    def num(s: String) = //parsed correctly as a number
       Answer(Nil, TypingResult(TypeNat, noConstraints))
 
-    def pred(a: Answer) =
+    def succ(a: Answer) =
       Answer(a.env, TypingResult(TypeNat, (a.tr.tpe, TypeNat) :: a.tr.c))
 
-    def succ(a: Answer) =
+    def pred(a: Answer) =
       Answer(a.env, TypingResult(TypeNat, (a.tr.tpe, TypeNat) :: a.tr.c))
 
     def iszero(a: Answer) =
       Answer(a.env, TypingResult(TypeBool, (a.tr.tpe, TypeNat) :: a.tr.c))
 
     def iff(cond: Answer, then: Answer, els: Answer) =
-      Answer(cond.env, TypingResult(els.tr.tpe, (cond.tr.tpe, TypeBool) ::(then.tr.tpe, els.tr.tpe) :: cond.tr.c ::: then.tr.c ::: els.tr.c))
+      Answer(cond.env, TypingResult(els.tr.tpe, (cond.tr.tpe, TypeBool) :: (then.tr.tpe, els.tr.tpe) :: cond.tr.c ::: then.tr.c ::: els.tr.c))
+    //FIXME noEnv?
 
-    def abs(v: String, tp: TypeTree, a:Answer) = defAns
-    /**If the type for abs is not specified, we create a new TypeVar*/
-//    val tpsch = TypeScheme(Nil, if (tp != EmptyType) toType(tp) else Type.factorFresh)
-//    val TypingResult(ty, const) = collect((v,tpsch)::env, t)
-//    TypingResult(TypeFun(tpsch.tp, ty), const)
+    def abs(v: String, tp: TypeTree, a:Answer) = {
+      val ts = TypeScheme(Nil, if (tp != EmptyType) toType(tp) else agPC.Type.factorFresh) //FIXME: double work!!
+      implicit val newA = addToEnv(a, (v, ts))
+      Answer(a.env, TypingResult(TypeFun(ts.tp, a.tr.tpe), a.tr.c))
+    }
 
     def app(a1: Answer, a2: Answer) = defAns//TAPL: p.321
     /**Constraints for t1 + Type*/
@@ -165,10 +173,8 @@ object ADPInfer extends scala.App {
 //    TypingResult(finaltp, cstv:::cst2) //keep track of the constraints of the left-hand side!
   }
 
-  trait Parent extends TypingGrammar with TypingAlgebra {
-
-  }
   class ParsingTest extends TypingGrammar with ParsingAlgebra {
+    def addToEnv[Int](a:Answer, i:Int) = a //should never be used!
     val tests = Source.fromFile("test.in").getLines.filter(!_.startsWith("/*")).toList
     tests.foreach {
       testString =>
@@ -184,6 +190,8 @@ object ADPInfer extends scala.App {
     }
   }
     class TypingTest extends TypingGrammar with TypingAlgebra {
+      def addToEnv[EnvElem](a:Answer, e:EnvElem) = Answer((e :: a.env.toList).asInstanceOf[Env], a.tr) //FIXME: env hack
+
       val tests = Source.fromFile("test.in").getLines.filter(!_.startsWith("/*")).toList
       tests.foreach {
         testString =>
@@ -206,5 +214,4 @@ object ADPInfer extends scala.App {
     }
     val parsingTest = new ParsingTest()
     val typingResult = new TypingTest()
-
 }
