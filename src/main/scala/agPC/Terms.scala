@@ -41,6 +41,10 @@ case class Abs(v: String, tp: TypeTree, t: Term) extends Term {
   override def toString() = "(\\" + v + ":" + tp + "." + t + ")"
 }
 
+case class Abs2(v: String, tp: Type, t: Term) extends Term {
+  override def toString() = "(\\" + v + ":" + tp + "." + t + ")"
+}
+
 case class App(t1: Term, t2: Term) extends Term {
   override def toString() = t1.toString + (t2 match {
     case App(_, _) => " (" + t2.toString + ")" // left-associative

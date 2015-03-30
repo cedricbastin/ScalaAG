@@ -28,7 +28,7 @@ object ADPInfer extends scala.App {
     def iff(a1: Answer, a2: Answer, a3: Answer): Answer
 
     def vari(s:String, a:Answer): Answer
-    def abs(ident:String, ty:agPC.TypeTree, a:Answer): Answer
+    def abs(ident:String, ty:TypeScheme, a:Answer): Answer //XXX: TypeTree
     def let(x: String, v: Answer, t: Answer): Answer //for let polymorphism
 
     def app(a1: Answer, a2: Answer): Answer
@@ -66,13 +66,15 @@ object ADPInfer extends scala.App {
         case "\\" ~ x ~ Some(":" ~ tp) =>
           val ts = TypeScheme(Nil, if (tp != EmptyType) toType(tp) else agPC.Type.factorFresh) //always nonempty?
           implicit val newA = addToEnv(a, (x, ts))
-          ("." ~> Term(newA)) ^^ { case a => abs(x, tp, a)}
+          ("." ~> Term(newA)) ^^ { case a => abs(x, ts, a)}
         case "\\" ~ x ~ None =>
           val ts = TypeScheme(Nil, agPC.Type.factorFresh)
           implicit val newA = addToEnv(a, (x, ts))
-          ("." ~> Term(newA)) ^^ { case a => abs(x, EmptyType, a)}
-      } | "let" ~ ident ~ "=" ~ Term ~ "in" ~ Term ^^ {
-        case "let" ~ x ~ "=" ~ t1 ~ "in" ~ t2 => let(x, t1, t2)
+          ("." ~> Term(newA)) ^^ { case a => abs(x, ts, a)}
+      } | ("let" ~ ident ~ "=" ~ Term ~ "in").flatMap {
+        case "let" ~ x ~ "=" ~ t1 ~ "in" =>
+          //val subst = unify(t1.asInstanceOf[Tuple])
+          Term ^^ {case t2 => let(x, t1, t2)}
       } | "(" ~> Term <~ ")" ^^ {
         case t => t
       } | failure("illegal start of simple term")
@@ -103,7 +105,7 @@ object ADPInfer extends scala.App {
     def iff(a1: Answer, a2: Answer, a3: Answer) = If(a1, a2, a3)
 
     def vari(s:String, a:Answer) = Var(s)
-    def abs(ident:String, ty:agPC.TypeTree, a:Answer) = Abs(ident, ty, a)
+    def abs(ident:String, ty:TypeScheme, a:Answer) = Abs2(ident, ty.tp, a)
     def let(x: String, v: Answer, t: Answer) = Let(x, v, t)
 
     def app(a1: Answer, a2: Answer) = App(a1, a2)
@@ -150,9 +152,7 @@ object ADPInfer extends scala.App {
       Answer(cond.env, TypingResult(els.tr.tpe, (cond.tr.tpe, TypeBool) :: (then.tr.tpe, els.tr.tpe) :: cond.tr.c ::: then.tr.c ::: els.tr.c))
     //FIXME noEnv?
 
-    def abs(v: String, tp: TypeTree, a:Answer) = {
-      val ts = TypeScheme(Nil, if (tp != EmptyType) toType(tp) else agPC.Type.factorFresh) //FIXME: double work!!
-      implicit val newA = addToEnv(a, (v, ts))
+    def abs(v: String, ts: TypeScheme, a:Answer) = {
       Answer(a.env, TypingResult(TypeFun(ts.tp, a.tr.tpe), a.tr.c))
     }
 
@@ -212,6 +212,9 @@ object ADPInfer extends scala.App {
           }
       }
     }
-    val parsingTest = new ParsingTest()
-    val typingResult = new TypingTest()
+  println("PARSING:")
+  val parsingTest = new ParsingTest()
+  println()
+  println("TYPING:")
+  val typingResult = new TypingTest()
 }
