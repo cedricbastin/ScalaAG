@@ -65,58 +65,6 @@ object TwoPhaseInferencer extends TypeInferencers {
       val TypingResult(finaltp, cst2) = collect((x, generalize(newenv, ty)) :: newenv, t)
       TypingResult(finaltp, cstv:::cst2) //keep track of the constraints of the left-hand side!
   }
-
-  def collectT(env: Env, t: Term): TypingResult = t match {
-    //case tr: TR => tr
-
-    case True | False => TypingResult(TypeBool, noConstraints)
-    case Zero => TypingResult(TypeNat, noConstraints)
-
-    case Var(x) =>
-      val t1 : TypeScheme = lookup(env, x)
-      if (t1 == null)
-        throw TypeError("Unknown variable " + x)
-      TypingResult(t1.instantiate, noConstraints)
-
-    case SuccT(tr) =>
-      println("succtr")
-      TypingResult(TypeNat, (tr.tpe, TypeNat) :: tr.c)
-
-
-    case PredT(tr) =>
-      println("predtr")
-      TypingResult(TypeNat, (tr.tpe, TypeNat) :: tr.c)
-
-    case IsZeroT(tr) =>
-      println("iszerotr")
-      TypingResult(TypeBool, (tr.tpe, TypeNat) :: tr.c)
-
-    case IfT(trc, tr1, tr2) =>
-      println("iftr")
-      TypingResult(tr2.tpe, (trc.tpe ,TypeBool)::(tr1.tpe, tr2.tpe)::trc.c:::tr1.c:::tr2.c)
-
-//    case AbsT(v: String, tp: TypeTree, tr) =>
-//      /**If the type for abs is not specified, we create a new TypeVar*/
-//      val tpsch = TypeScheme(Nil, if (tp != EmptyType) toType(tp) else Type.factorFresh)
-//      val TypingResult(ty, const) = collect((v,tpsch)::env, t)
-//      TypingResult(TypeFun(tpsch.tp, ty), const)
-//
-//    case AppT(tr1, tr2) => //TAPL: p.321
-//      /**Constraints for t1 + Type*/
-//      val TypingResult(ty1, const1) = collect(env, t1)
-//      /**Constraints for t2 + Type*/
-//      val TypingResult(ty2, const2) = collect(env, t2)
-//      val tx = Type.factorFresh
-//      TypingResult(tx, (ty1,TypeFun(ty2,tx))::const1:::const2)
-//
-//    case LetT(x, v, t) =>
-//      val TypingResult(s, cstv) = collect(env, v)
-//      val subst = unify(cstv)
-//      val ty: Type = subst(s)
-//      val newenv = subst(env)
-//      val TypingResult(finaltp, cst2) = collect((x, generalize(newenv, ty)) :: newenv, t)
-//      TypingResult(finaltp, cstv:::cst2) //keep track of the constraints of the left-hand side!
-  }
   
   /**We generalize the type variables in T as long as they do not belong
    * to the environment*/

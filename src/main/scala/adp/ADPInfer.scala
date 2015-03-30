@@ -11,13 +11,12 @@ import scala.util.parsing.combinator.syntactical.StandardTokenParsers
  */
 object ADPInfer extends scala.App {
   trait Signature {
-    type Alphabet // input type
+    type Alphabet // FIXME: input type
     type Answer // output type
   }
 
   trait TypingSig extends Signature {
     //type Alphabet
-
     def tru: Answer
     def fals: Answer
 
@@ -28,48 +27,64 @@ object ADPInfer extends scala.App {
 
     def iff(a1: Answer, a2: Answer, a3: Answer): Answer
 
-    //def app(a:Answer, a1:Answer):Answer
-
-    //def combine(a1: Answer, a2: Answer): Answer
+    def vari(s:String, a:Answer)
+    def abs(ident:String, ty:agPC.TypeTree, a:Answer): Answer
+    def app(a1: Answer, a2: Answer): Answer
+    def let(x: String, v: Answer, t: Answer)
   }
 
   trait TypingGrammar extends StandardTokenParsers with TypingSig {
-    //    def Term: Parser[Term] = positioned(
-    //      SimpleTerm ~ rep(SimpleTerm) ^^ { case t ~ ts => (t :: ts).reduceLeft[Term](App)}
-    //        | failure("illegal start of term"))
     def Term(implicit a: Answer): Parser[Answer] =
       SimpleTerm ^^ (x => x) | {
-        SimpleTerm >> (res => Term(res))
-      } ^^ (x => x) | // => val combine(x, Term(x))} | //~ rep(SimpleTerm) ^^ { case t ~ ts => (t :: ts).reduceLeft[Term](App)}
+        SimpleTerm flatMap {case res => implicit val imp = res; Term(imp) map {case ans => app(res, ans)} }
+        //(SimpleTerm >> (res => Term(res))) ^^ (x => x) //FIXME
+      } | // => val combine(x, Term(x))} | //~ rep(SimpleTerm) ^^ { case t ~ ts => (t :: ts).reduceLeft[Term](App)}
         failure("illegal start of term")
 
     def SimpleTerm(implicit a: Answer): Parser[Answer] =
-      "true" ^^^ tru |
-        "false" ^^^ fals |
-        numericLit ^^ {
-          num(_)
-        } |
-        "succ" ~> Term ^^ {
-          succ(_)
-        } |
-        "pred" ~> Term ^^ {
-          pred(_)
-        } |
-        "iszero" ~> Term ^^ {
-          iszero(_)
-        } |
-        "if" ~ Term ~ "then" ~ Term ~ "else" ~ Term ^^ {
-          case "if" ~ t1 ~ "then" ~ t2 ~ "else" ~ t3 => iff(t1, t2, t3)
-        }
+      "true" ^^^ {
+        tru
+      } | "false" ^^^ {
+        fals
+      } | numericLit ^^ {
+        num(_)
+      } | "succ" ~> Term ^^ {
+        succ(_)
+      } | "pred" ~> Term ^^ {
+        pred(_)
+      } | "iszero" ~> Term ^^ {
+        iszero(_)
+      //} | "if" ~ Term ~ "then" ~ Term ~ "else" ~ Term ^^ {
+      } | "if" ~ Term ~ "then" ~ Term ~ "else" ~ Term ^^ {
+        case "if" ~ t1 ~ "then" ~ t2 ~ "else" ~ t3 => iff(t1, t2, t3)
+      //} | ("\\" ~ ident ~ opt(":" ~ agPC.Infer.Type) ~ "." ~ Term ^^ {
+      } | ("\\" ~ ident ~ opt(":" ~ Type)).flatMap {
+        //case (id, tt, x) => val res + tt.} ^^ (res1 => "." ~ Term) ^^ {
+        case "\\" ~ x ~ Some(":" ~ tp) => ("." ~> Term) ^^ { case a => abs(x, tp, a)}
+        case "\\" ~ x ~ None => ("." ~> Term) ^^ { case a => abs(x, EmptyType, a)}
+//      } | ident ^^ {x =>
+//        vari(x, a)
+//      } | "\\" ~ ident ~ opt(":" ~ Infer.Type) ~ "." ~ Term ^^ {
+//            case "\\" ~ x ~ Some(":" ~ tp) ~ "." ~ t => abs(x, tp, t)
+//            case "\\" ~ x ~ None ~ "." ~ t => abs(x, EmptyType, t)
+      } | "(" ~> Term <~ ")" ^^ {
+        case t => t
+      } //| "let" ~ ident ~ "=" ~ Term ~ "in" ~ Term ^^ {
+//        case "let" ~ x ~ "=" ~ t1 ~ "in" ~ t2 => let(x, t1, t2)
+//      } | failure("illegal start of simple term"))
 
-    //        | ident ^^ (Var(_))
-    //        | "\\" ~ ident ~ opt(":" ~ Type) ~ "." ~ Term ^^ {
-    //        case "\\" ~ x ~ Some(":" ~ tp) ~ "." ~ t => Abs(x, tp, t)
-    //        case "\\" ~ x ~ None ~ "." ~ t => Abs(x, EmptyType, t)
-    //      }
-    //        | "(" ~> Term <~ ")" ^^ { case t => t}
-    //        | "let" ~ ident ~ "=" ~ Term ~ "in" ~ Term ^^ { case "let" ~ x ~ "=" ~ t1 ~ "in" ~ t2 => Let(x, t1, t2)}
-    //        | failure("illegal start of simple term"))
+    def Type: Parser[TypeTree] = positioned(
+      BaseType ~ opt("->" ~ Type) ^^ {
+        case t1 ~ Some("->" ~ t2) => FunType(t1, t2)
+        case t1 ~ None => t1
+      }
+        | failure("illegal start of type"))
+
+    def BaseType: Parser[TypeTree] = positioned(
+      "Bool" ^^^ BoolType
+        | "Nat" ^^^ NatType
+        | "(" ~> Type <~ ")" ^^ { case t => t}
+    )
   }
 
   //  def collect(env: Env, t: Term): TypingResult = t match {
@@ -128,9 +143,8 @@ object ADPInfer extends scala.App {
 
   trait TypingAlgebra extends TypingSig {
     type Env = List[(String, TypeScheme)]
-
     case class Answer(env: Env, tr: TypingResult)
-
+    val defAns = Answer(Nil, TypingResult(TypeBool, noConstraints))
     //type Answer = Ans
 
     type Constraint = (Type, Type)
@@ -141,6 +155,13 @@ object ADPInfer extends scala.App {
       Answer(Nil, TypingResult(TypeBool, noConstraints))
     val fals =
       Answer(Nil, TypingResult(TypeBool, noConstraints))
+
+    def vari(s:String, a:Answer) = {
+      val t1: TypeScheme = lookup(a.env, s)
+      if (t1 == null)
+        throw TypeError("Unknown variable " + s)
+      Answer(a.env, TypingResult(t1.instantiate, noConstraints))
+    }
 
     def num(s: String) =
       Answer(Nil, TypingResult(TypeNat, noConstraints))
@@ -154,18 +175,40 @@ object ADPInfer extends scala.App {
     def iszero(a: Answer) =
       Answer(a.env, TypingResult(TypeBool, (a.tr.tpe, TypeNat) :: a.tr.c))
 
-    def iff(cond: Answer, then: Answer, els: Answer) = {
+    def iff(cond: Answer, then: Answer, els: Answer) =
       Answer(cond.env, TypingResult(els.tr.tpe, (cond.tr.tpe, TypeBool) ::(then.tr.tpe, els.tr.tpe) :: cond.tr.c ::: then.tr.c ::: els.tr.c))
 
-    }
+    def abs(v: String, tp: TypeTree, a:Answer) = defAns
+    /**If the type for abs is not specified, we create a new TypeVar*/
+//    val tpsch = TypeScheme(Nil, if (tp != EmptyType) toType(tp) else Type.factorFresh)
+//    val TypingResult(ty, const) = collect((v,tpsch)::env, t)
+//    TypingResult(TypeFun(tpsch.tp, ty), const)
+
+    def app(a1: Answer, a2: Answer) = defAns//TAPL: p.321
+    /**Constraints for t1 + Type*/
+//    val TypingResult(ty1, const1) = collect(env, t1)
+//    /**Constraints for t2 + Type*/
+//    val TypingResult(ty2, const2) = collect(env, t2)
+//    val tx = Type.factorFresh
+//    TypingResult(tx, (ty1,TypeFun(ty2,tx))::const1:::const2)
+
+    def let(x: String, v: Answer, t: Answer) = defAns
+//    val TypingResult(s, cstv) = collect(env, v)
+//    val subst = unify(cstv)
+//    val ty: Type = subst(s)
+//    val newenv = subst(env)
+//    val TypingResult(finaltp, cst2) = collect((x, generalize(newenv, ty)) :: newenv, t)
+//    TypingResult(finaltp, cstv:::cst2) //keep track of the constraints of the left-hand side!
+  }
 
     class Clazz extends TypingGrammar with TypingAlgebra {
       val tests = Source.fromFile("test.in").getLines.filter(!_.startsWith("/*")).toList
       tests.foreach {
-        testString => lexical.delimiters ++= List("(", ")", "\\", ".", ":", "=", "->", "{", "}", ",", "*", "+")
+        testString =>
+          lexical.delimiters ++= List("(", ")", "\\", ".", ":", "=", "->", "{", "}", ",", "*", "+")
           lexical.reserved ++= List("Bool", "Nat", "true", "false", "if", "then", "else", "succ", "pred", "iszero", "let", "in")
           val tokens = new lexical.Scanner(testString)
-          print(testString + ": ")
+          print(testString + " --> ")
           implicit val answer = Answer(Nil, TypingResult(TypeBool, noConstraints)) //base environment
           val parsed = SimpleTerm(answer)(tokens)
           parsed match {
@@ -181,7 +224,7 @@ object ADPInfer extends scala.App {
           }
       }
     }
-    val test = new Clazz
+    val test = new Clazz()
     println(test)
-  }
+
 }

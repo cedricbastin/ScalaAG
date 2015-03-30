@@ -19,13 +19,6 @@ object Infer extends StandardTokenParsers {
     SimpleTerm ~ rep(SimpleTerm) ^^ { case t ~ ts => (t :: ts).reduceLeft[Term](App)}
       | failure("illegal start of term"))
 
-  def TermT: Parser[Term] = positioned(
-    SimpleTermT ~ rep(SimpleTermT) ^^ { case t ~ ts => Inferencer.collect(Nil, (t :: ts).reduceLeft[Term](App))}
-      | failure("illegal start of term"))
-
-  //  def TermTup: Parser[(Term, Type)]= positioned(
-  //    SimpleTermTup ~ rep(SimpleTermTup) ^^ {case t ~ ts => val term = (t._1 :: ts.map(_._1)).reduceLeft[Term](App); (term, Inferencer.typeOf(term)) }
-  //      | failure("illegal start of term"))
 
   /** <pre>
     * SimpleTerm ::= "true"
@@ -59,27 +52,6 @@ object Infer extends StandardTokenParsers {
       | "let" ~ ident ~ "=" ~ Term ~ "in" ~ Term ^^ { case "let" ~ x ~ "=" ~ t1 ~ "in" ~ t2 => Let(x, t1, t2)}
       | failure("illegal start of simple term"))
 
-  def SimpleTermT: Parser[Term] = positioned(
-    "true" ^^^ Inferencer.collectT(Nil, True)
-      | "false" ^^^ Inferencer.collectT(Nil, False)
-      | numericLit ^^ { case chars => Inferencer.collectT(Nil, lit2Num(chars.toInt))}
-      | "succ" ~ Term ^^ { case "succ" ~ t => Inferencer.collectT(Nil, Succ(t))}
-      | "pred" ~ Term ^^ { case "pred" ~ t => Inferencer.collectT(Nil, Pred(t))}
-      | "iszero" ~ Term ^^ { case "iszero" ~ t => Inferencer.collectT(Nil, IsZero(t))}
-      | "if" ~ Term ~ "then" ~ Term ~ "else" ~ Term ^^ {
-      case "if" ~ t1 ~ "then" ~ t2 ~ "else" ~ t3 => Inferencer.collectT(Nil, If(t1, t2, t3))
-    }
-      | ident ^^ { case id => Var(id)}
-      | "\\" ~ ident ~ opt(":" ~ Type) ~ "." ~ Term ^^ {
-      case "\\" ~ x ~ Some(":" ~ tp) ~ "." ~ t => Inferencer.collectT(Nil, Abs(x, tp, t))
-      case "\\" ~ x ~ None ~ "." ~ t => Inferencer.collectT(Nil, Abs(x, EmptyType, t))
-    }
-      | "(" ~> Term <~ ")" ^^ { case t => Inferencer.collectT(Nil, t)}
-      | "let" ~ ident ~ "=" ~ Term ~ "in" ~ Term ^^ { case "let" ~ x ~ "=" ~ t1 ~ "in" ~ t2 => Inferencer.collectT(Nil, Let(x, t1, t2))}
-      | failure("illegal start of simple term"))
-
-  //  def SimpleTermTup: Parser[(Term, Type)]
-
   /** <pre>
     * Type       ::= SimpleType { "->" Type }</pre>
     */
@@ -111,8 +83,7 @@ object Infer extends StandardTokenParsers {
   def main(args: Array[String]) {
     val tests = Source.fromFile("test.in").getLines.filter(!_.startsWith("/*")).toList
     tests.foreach { testString =>
-      //test1(testString)
-      test2(testString)
+      test1(testString)
     }
     //test
   }
@@ -135,19 +106,4 @@ object Infer extends StandardTokenParsers {
         println(e)
     }
   }
-  def test2(testString:String) = {
-    val tokens = new lexical.Scanner(testString)
-    //val phrased = phrase(Term)(token) //why would this be better?
-    def id[T](x: T) = x
-    def idTerm(x: Term) = x
-    val idt = idTerm _
-    val termt = TermT(tokens) match {
-      case Success(tr :Inferencer.TypingResult, _) =>
-        println("comb.: "+{try {Inferencer.typeOfTR(tr)} catch { case _ => "error"}})
-      case e =>
-        println("NO TR: "+e)
-    }
-
-  }
-
 }
