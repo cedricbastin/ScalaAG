@@ -13,6 +13,8 @@ object ADPInfer extends scala.App {
   trait Signature {
     //type Alphabet
     type Answer //top down, bottom up or both
+    type Env
+    type EnvElem
     def addToEnv[E](a:Answer, e:E): Answer
   }
 
@@ -34,7 +36,7 @@ object ADPInfer extends scala.App {
     def app(a1: Answer, a2: Answer): Answer
   }
 
-  trait TypingGrammar extends StandardTokenParsers with StlcSig {
+  trait StlcGrammar extends StandardTokenParsers with StlcSig {
     lexical.delimiters ++= List("(", ")", "\\", ".", ":", "=", "->", "{", "}", ",", "*", "+")
     lexical.reserved ++= List("Bool", "Nat", "true", "false", "if", "then", "else", "succ", "pred", "iszero", "let", "in")
 
@@ -173,7 +175,7 @@ object ADPInfer extends scala.App {
 //    TypingResult(finaltp, cstv:::cst2) //keep track of the constraints of the left-hand side!
   }
 
-  class ParsingTest extends TypingGrammar with ParsingAlgebra {
+  class ParsingTest extends StlcGrammar with ParsingAlgebra {
     def addToEnv[Int](a:Answer, i:Int) = a //should never be used!
     val tests = Source.fromFile("test.in").getLines.filter(!_.startsWith("/*")).toList
     tests.foreach {
@@ -189,7 +191,7 @@ object ADPInfer extends scala.App {
 //        }
     }
   }
-    class TypingTest extends TypingGrammar with TypingAlgebra {
+    class TypingTest extends StlcGrammar with TypingAlgebra {
       def addToEnv[EnvElem](a:Answer, e:EnvElem) = Answer((e :: a.env.toList).asInstanceOf[Env], a.tr) //FIXME: env hack
 
       val tests = Source.fromFile("test.in").getLines.filter(!_.startsWith("/*")).toList
