@@ -1,34 +1,44 @@
 package agParsers
 
-import scala.util.parsing.combinator._
+import scala.util.parsing.combinator.Parsers
 
-trait AGParsers extends Parsers {
+trait AGParsers extends Parsers { //can a trait extend a class???
 
-
-  abstract class AGParser[T] extends ((T, Input) => ParseResult[T]) {
+  //def Term(implicit a: Answer): Parser[Answer] =
+  abstract class AGParser[+T] extends ((T, Input) => ParseResult[T]) {
     // type Input = Reader[Elem] //Parsers.scala
 
-    //def Term(implicit a: Answer): Parser[Answer] =
-    //def ~[U](q : => Parser[U]) :Parser[~[T, U]]
-    //e.g.  ~ takes a Parser[S], a method S => T and produces a Parser[T]
-    // this ~ that
+    /**
+     * map: simply applies the function on all results
+     */
+    def map[U](f: T => U):AGParser[U] = {
+      val outer = this
+      new AGParser[U] {
+        def apply(t: T, input: Input):ParseResult[U] = outer(t, input) map (f(_))
+      }
+    }
 
-    //AGParser[T]~AGParser[U] = AGParser[T,U]
-    def ~[U](that: AGParser[U]) = AGParser[(T, U)] { (tu:(T,U), input: Input) => //call to companion object instead of constructing new parser here
-      val x = this(tu._1, input)
+      //Parser[U] { subword => this(subword) map f }
+
+      //Parser[U] { (t:T,in:Input) => this(t, in) map f }
+
+
+    //def ~[U](q : => Parser[U]) :Parser[~[T, U]] i.e.  "~" takes a Parser[S], a method S => T and produces a Parser[T]
+    def ~[U >: T](that: AGParser[U]) = AGParser[(T,U)] { case ((t:T, u:U), input: Input) => //call to companion object instead of constructing new parser here
+      //is the result already piped into u:U ??
+      val x = this(t, input) //pump the environment
       if (x.isEmpty) Failure("nein", input)
       else {
-        val y = that(tu._2, x.next)
+        val y = that(x.get, x.next) //"pipe" new environemnt
         if (y.isEmpty) Failure("ach", input)
         else Success((x.get, y.get), y.next)
       }
-
-      //this
     }
   }
+
   object AGParser { //companion object
-    def apply[T](f:(T, Input) => ParseResult[T]) = new AGParser[T] {
-      def apply(t:T, input:Input) = f(t, input)
+    def apply[V](f:(V, Input) => ParseResult[V]) = new AGParser[V] {
+      def apply(t:V, input:Input) = f(t, input)
     }
   }
     //Parsers.scala

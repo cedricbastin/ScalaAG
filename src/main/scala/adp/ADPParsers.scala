@@ -6,8 +6,7 @@ package adp
  * - a type that is "calculated": answer type
  */
 trait Signature {
-  type Alphabet
-  // input type
+  type Alphabet // input type
   type Answer // output type
 }
 

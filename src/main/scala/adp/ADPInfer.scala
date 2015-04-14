@@ -12,10 +12,14 @@ import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 object ADPInfer extends scala.App {
   trait Signature {
     //type Alphabet
-    type Answer //top down, bottom up or both
-    type Env
-    type EnvElem
-    def addToEnv[E](a:Answer, e:E): Answer
+    //type Answer //top down, bottom up or both
+    case class Answer(env:Env, tr:TypingResult)
+    //env = top down
+    //tr = bottom up
+    type EnvElem = (String, TypeScheme)
+    type Env = List[EnvElem]
+    def addToEnv(env:Env, e:EnvElem): Env
+    def combineEnvs(e1:Env, e2:Env): Env
   }
 
   trait StlcSig extends Signature {
@@ -67,16 +71,24 @@ object ADPInfer extends scala.App {
       } | ("\\" ~ ident ~ opt(":" ~ Type)).flatMap {
         case "\\" ~ x ~ Some(":" ~ tp) =>
           val ts = TypeScheme(Nil, if (tp != EmptyType) toType(tp) else agPC.Type.factorFresh) //always nonempty?
-          implicit val newA = addToEnv(a, (x, ts))
+          implicit val newA = Answer(addToEnv(a.env, (x, ts)), a.tr)
           ("." ~> Term(newA)) ^^ { case a => abs(x, ts, a)}
         case "\\" ~ x ~ None =>
           val ts = TypeScheme(Nil, agPC.Type.factorFresh)
-          implicit val newA = addToEnv(a, (x, ts))
+          implicit val newA = Answer(addToEnv(a.env, (x, ts)), a.tr)
           ("." ~> Term(newA)) ^^ { case a => abs(x, ts, a)}
-      } | ("let" ~ ident ~ "=" ~ Term ~ "in").flatMap {
-        case "let" ~ x ~ "=" ~ t1 ~ "in" =>
-          //val subst = unify(t1.asInstanceOf[Tuple])
-          Term ^^ {case t2 => let(x, t1, t2)}
+      } | "let" ~> ident ~ (":" ~> Type) ~ ("=" ~> Term(a)).flatMap {
+        case v ~ typ ~ t1 =>
+          implicit val newA =
+          ("in" ~> Term(newA)) ^^ { case t2 => Application(Abstraction(Var(v), typ, t2), t1)}
+//      } | "fix" ~> Term ^^ {
+//        case e1 => Fix(e1)
+//      } | "letrec" ~> (ident <~ ":") ~ (Type <~ "=") ~ Term ~ ("in" ~> Term) ^^ {
+//        case v~ty~t1~t2 => Application(Abstraction(Var(v),ty,t2), Fix(Abstraction(Var(v),ty,t1)))
+//      } | ("let" ~ ident ~ "=" ~ Term ~ "in").flatMap {
+//        case "let" ~ x ~ "=" ~ t1 ~ "in" =>
+//          //val subst = unify(t1.asInstanceOf[Tuple])
+//          Term ^^ {case t2 => let(x, t1, t2)}
       } | "(" ~> Term <~ ")" ^^ {
         case t => t
       } | failure("illegal start of simple term")
@@ -114,13 +126,8 @@ object ADPInfer extends scala.App {
   }
 
   trait TypingAlgebra extends StlcSig { //collect reformulated
-    type EnvElem = (String, TypeScheme)
-    type Env = List[EnvElem]
-    type Constraint = (Type, Type)
 
-    //env = top down
-    //tr = bottom up
-    case class Answer(env: Env, tr: TypingResult)
+    type Constraint = (Type, Type)
 
     val noEnv = Nil
     val noConstraints: List[Constraint] = Nil
@@ -158,25 +165,27 @@ object ADPInfer extends scala.App {
       Answer(a.env, TypingResult(TypeFun(ts.tp, a.tr.tpe), a.tr.c))
     }
 
-    def app(a1: Answer, a2: Answer) = defAns//TAPL: p.321
-    /**Constraints for t1 + Type*/
-//    val TypingResult(ty1, const1) = collect(env, t1)
-//    /**Constraints for t2 + Type*/
-//    val TypingResult(ty2, const2) = collect(env, t2)
-//    val tx = Type.factorFresh
-//    TypingResult(tx, (ty1,TypeFun(ty2,tx))::const1:::const2)
+    def app(a1: Answer, a2: Answer) = { //TAPL: p.321
+      /**Constraints for t1 + Type*/
+      val TypingResult(ty1, const1) = collect(a1.env, a1.tr)
+      /**Constraints for t2 + Type*/
+      val TypingResult(ty2, const2) = collect(a2.env, a2.tr)
+      val tx = Type.factorFresh
+      Answer(a1.env, TypingResult(tx, (ty1,TypeFun(ty2,tx))::const1:::const2))
+    }
 
-    def let(x: String, v: Answer, t: Answer) = defAns
-//    val TypingResult(s, cstv) = collect(env, v)
-//    val subst = unify(cstv)
-//    val ty: Type = subst(s)
-//    val newenv = subst(env)
-//    val TypingResult(finaltp, cst2) = collect((x, generalize(newenv, ty)) :: newenv, t)
-//    TypingResult(finaltp, cstv:::cst2) //keep track of the constraints of the left-hand side!
+    def let(x: String, v: Answer, t: Answer) = {
+      val TypingResult(s, cstv) = collect(env, v)
+      val subst = unify(cstv)
+      val ty: Type = subst(s)
+      val newenv = subst(env)
+      val TypingResult(finaltp, cst2) = collect((x, generalize(newenv, ty)) :: newenv, t)
+      TypingResult(finaltp, cstv ::: cst2) //keep track of the constraints of the left-hand side!
+    }
   }
 
   class ParsingTest extends StlcGrammar with ParsingAlgebra {
-    def addToEnv[Int](a:Answer, i:Int) = a //should never be used!
+    def addToEnv(env:Env, e:EnvElem) = e //should never be used!
     val tests = Source.fromFile("test.in").getLines.filter(!_.startsWith("/*")).toList
     tests.foreach {
       testString =>
@@ -192,7 +201,7 @@ object ADPInfer extends scala.App {
     }
   }
     class TypingTest extends StlcGrammar with TypingAlgebra {
-      def addToEnv[EnvElem](a:Answer, e:EnvElem) = Answer((e :: a.env.toList).asInstanceOf[Env], a.tr) //FIXME: env hack
+      def addToEnv(env:Env, e:EnvElem) = e :: env //FIXME: env hack
 
       val tests = Source.fromFile("test.in").getLines.filter(!_.startsWith("/*")).toList
       tests.foreach {
