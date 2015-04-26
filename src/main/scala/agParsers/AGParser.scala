@@ -1,68 +1,124 @@
 package agParsers
 
-import scala.util.parsing.combinator.Parsers
+import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 
-trait AGParsers extends Parsers { //can a trait extend a class???
+trait Signature {
+  //type Alphabet
+  type Answer //contains environment somehow! we don't want to add another type parameter to AGParser which would also only give limited functionality
+  def defaultAnswer: Answer
+  //could contain something like Answer(inheritedEnv, Value, synthezisedEnv)
+  type TopEnv
+  type TopEnvElem
+  type BotEnv
+  type BotEnvElem
+  //def addToEnv[E](a:Answer, e:E): Answer
+}
 
-  //def Term(implicit a: Answer): Parser[Answer] =
-  abstract class AGParser[+T] extends ((T, Input) => ParseResult[T]) {
-    // type Input = Reader[Elem] //Parsers.scala
+//A parser library which allows to pipe an environment
+trait AGParsers extends StandardTokenParsers with Signature {
+  // type Input = Reader[Elem] //Parsers.scala
 
-    /**
-     * map: simply applies the function on all results
-     */
-    def map[U](f: T => U):AGParser[U] = {
-      val outer = this
-      new AGParser[U] {
-        def apply(t: T, input: Input):ParseResult[U] = outer(t, input) map (f(_))
+  //can a trait extend a class???
+  abstract class AGParseResult[T] //extends ParseResult; SEALED CANNOT BE EXTENDED
+  case class AGFailure[T](msg: String, next: Input) //extends AGParseResult[T]
+  case class AGSuccess[+T](result: T, next: Input, ans: Answer) //extends AGParseResult[T]
+
+
+  implicit def toAGParser(parser:Parser[T]) = AGPArser[T] {
+
+  }
+  //T is independent from Answer!
+  abstract class AGParser[T] extends ((Answer, Input) => AGParseResult[T]) {
+
+
+    def map[U](f: T => U) = AGParser[U] {
+      //include Answer in the signature?
+      case (ans: Answer, input: Input) =>
+        this(ans, input) match {
+          case Success(result, next, ans) =>
+            AGSuccess(f(result), next, ans) //FIXME: utiliser ans dans f?
+          case Failure(msg, next) =>
+            AGFailure[U](msg, next)
+        }
+    }
+
+    def flatMap[U](f: T => AGParser[U]) = AGParser[U] {
+      case (ans: Answer, input: Input) =>
+        this(ans, input) match {
+          case AGSuccess(result, next, ans) =>
+            f(result)(ans, next)
+          case Failure(msg, next) =>
+            AGFailure[U](msg, next)
+        }
+    }
+
+    def ^^[U](f: T => U) = map(f)
+
+    def ^^^[U](f: => U) = AGParser[U] {
+      //include Answer in the signature?
+      case (ans: Answer, input: Input) =>
+        this(ans, input) match {
+          case AGSuccess(result, next, ans) =>
+            AGSuccess(f, next, ans)
+          case Failure(msg, next) =>
+            AGFailure[U](msg, next)
+        }
+    }
+
+    def ~[U](that: AGParser[U]) = AGParser[(T, U)] {
+      //use the companion object instead of constructing new parser by hand
+      case (ans: Answer, input: Input) =>
+        this(ans, input) match {
+          //the current parser
+          case AGSuccess(result1, next1, ans1) =>
+            that(ans1, next1) match {
+              //the following parser, piped ans "environment"
+              case AGSuccess(result2, next2, ans2) =>
+                Success((result1, result2), next2, ans2) //ans2 is piped "environment"
+              case AGFailure(msg2, next2) =>
+                AGFailure[(T, U)](msg2, next2)
+            }
+          case AGFailure(msg1, next1) =>
+            AGFailure[(T, U)](msg1, next1)
+        }
+    }
+
+    def ~>[U](that: AGParser[U]) = {
+      this.~(that) match {
+        case AGSuccess((t: T, u: U), next, ans) =>
+          AGSuccess[U](u, next, ans)
+        case Failure(msg1, next1) =>
+          Failure[U](msg1, next1)
       }
     }
 
-      //Parser[U] { subword => this(subword) map f }
+    def <~[U](that: AGParser[U]) = {
+      this.~(that) match {
+        case AGSuccess((t: T, u: U), next, ans) =>
+          AGSuccess[T](t, next, ans)
+        case AGFailure(msg1, next1) =>
+          AGFailure[T](msg1, next1)
+      }
+    }
 
-      //Parser[U] { (t:T,in:Input) => this(t, in) map f }
+    def StringParser(s:String) = AGParser[T] {
 
+    }
+  }
 
-    //def ~[U](q : => Parser[U]) :Parser[~[T, U]] i.e.  "~" takes a Parser[S], a method S => T and produces a Parser[T]
-    def ~[U >: T](that: AGParser[U]) = AGParser[(T,U)] { case ((t:T, u:U), input: Input) => //call to companion object instead of constructing new parser here
-      //is the result already piped into u:U ??
-      val x = this(t, input) //pump the environment
-      if (x.isEmpty) Failure("nein", input)
-      else {
-        val y = that(x.get, x.next) //"pipe" new environemnt
-        if (y.isEmpty) Failure("ach", input)
-        else Success((x.get, y.get), y.next)
+  object AGParser extends Parser {
+    //companion object to build new parsers without the need for and "val outer = this" reference
+    def apply[V](f: (Answer, Input) => AGParseResult[V]) = new AGParser[V] {
+      def apply(ans: Answer, input: Input) = f(ans, input)
+    }
+    //for interability with the string parsers:
+    def apply[V](f: Input => ParseResult[V]) = new AGParser[V] {
+      def apply(ans: Answer, input: Input) = f(input) match {
+        case NoSuccess(msg, next) => AGFailure(msg, next)
+        case Success(res, next) => AGSuccess(res, next, ans) //FIXME: defaultAnswer
       }
     }
   }
-
-  object AGParser { //companion object
-    def apply[V](f:(V, Input) => ParseResult[V]) = new AGParser[V] {
-      def apply(t:V, input:Input) = f(t, input)
-    }
-  }
-    //Parsers.scala
-//    def ~ [U](q: => Parser[U]): Parser[~[T, U]] = { lazy val p = q // lazy argument
-//      (for(a <- this; b <- p) yield new ~(a,b)).named("~")
-//    }
-
-    //StagedParsers.scala
-//    def ~[U: Manifest](that: Parser[U]) = Parser[(T, U)] { input =>
-//      val x = this(input)
-//      if (x.isEmpty) Failure[(T, U)](input)
-//      else {
-//        val y = that(x.next)
-//        if (y.isEmpty) Failure[(T, U)](input)
-//        else Success(make_tuple2(x.get, y.get), y.next)
-//      }
-//    }
-
-
-    //def ~>
-    //def <~
-    //def map
-    //def flatMap
-    //sealed trait Linked
 }
 
 
@@ -151,35 +207,4 @@ trait AGParsers extends Parsers { //can a trait extend a class???
 //        object Parser{
 //        def apply[T:Manifest](f:Rep[Input]=>Rep[ParseResult[T]])=new Parser[T]{
 //        def apply(in:Rep[Input])=f(in)
-//        }
-//
-//        /**
-//         * run a parser, and return an `Option`
-//         */
-//        def phrase[T:Manifest](p:=>Parser[T],in:Rep[Input]):Rep[Option[T]]={
-//        val presult=p(in)
-//        val res=if(presult.isEmpty)none[T]()else Some(presult.get)
-//        res
-//        }
-//        }
-//        }
-//
-//        trait StagedParsersExp
-//        extends StagedParsers
-//        with ParseResultOpsExp
-//        with OptionOpsExp
-//        with MyTupleOpsExp
-//        with IfThenElseExpOpt
-//        with BooleanOpsExpOpt
-//        with EqualExpOpt
-//
-//
-//        trait ScalaGenStagedParsers
-//        extends ScalaGenParseResultOps
-//        with ScalaGenOptionOps
-//        with ScalaGenMyTupleOps
-//        with ScalaGenIfThenElse
-//        with ScalaGenBooleanOps
-//        with ScalaGenEqual{
-//        val IR:StagedParsersExp
 //        }
