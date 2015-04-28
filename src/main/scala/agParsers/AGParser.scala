@@ -2,53 +2,65 @@ package agParsers
 
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 
-trait Signature {
-  //type Alphabet
-  type Answer //contains environment somehow! we don't want to add another type parameter to AGParser which would also only give limited functionality
-  def defaultAnswer: Answer
-  //could contain something like Answer(inheritedEnv, Value, synthezisedEnv)
-  type TopEnv
-  type TopEnvElem
-  type BotEnv
-  type BotEnvElem
-  //def addToEnv[E](a:Answer, e:E): Answer
-}
-
 //A parser library which allows to pipe an environment
-trait AGParsers extends StandardTokenParsers with Signature {
+trait AGParsers extends StandardTokenParsers with AGSig {
   // type Input = Reader[Elem] //Parsers.scala
 
-  //can a trait extend a class???
-  abstract class AGParseResult[T] //extends ParseResult; SEALED CANNOT BE EXTENDED
-  case class AGFailure[T](msg: String, next: Input) //extends AGParseResult[T]
-  case class AGSuccess[+T](result: T, next: Input, ans: Answer) //extends AGParseResult[T]
-
-
-  implicit def toAGParser(parser:Parser[T]) = AGPArser[T] {
-
+  //Answer also contains environment
+  abstract class AGParseResult[+T] //extends ParseResult[T] => SEALED CANNOT BE EXTENDED
+  object AGParseResult {
+    def apply[T](pr:ParseResult[T], ans:Answer) = pr match {
+      case Success(result, next) => AGSuccess(result, next, ans)
+      case Failure(msg, next) => AGFailure(msg, next)
+    }
   }
+  case class AGSuccess[+T](result: T, next: Input, ans: Answer) extends AGParseResult[T]
+  case class AGFailure(msg: String, next: Input) extends AGParseResult[Nothing]
+
+//  def addToEnv(p:AGParser[T]) = AGParser[U] {
+//    //include Answer in the signature?
+//    case (ans: Answer, input: Input) =>
+//      p(ans, input) match {
+//        case "\\" ~ x:String ~ ":" ~ tp:TypeTree =>
+//      }
+//  }
+
   //T is independent from Answer!
-  abstract class AGParser[T] extends ((Answer, Input) => AGParseResult[T]) {
+  abstract class AGParser[+T] extends ((Answer, Input) => AGParseResult[T]) {
 
+    //Reader Monad is defined as a monad transformer:
+    // (* -> *) -> * -> *
+    // A -> E -> M A
 
+      //FIXME: should mapping include answer treatment or not?
     def map[U](f: T => U) = AGParser[U] {
       //include Answer in the signature?
       case (ans: Answer, input: Input) =>
         this(ans, input) match {
-          case Success(result, next, ans) =>
-            AGSuccess(f(result), next, ans) //FIXME: utiliser ans dans f?
-          case Failure(msg, next) =>
-            AGFailure[U](msg, next)
+          case AGSuccess(result1, next1, ans1) =>
+            AGSuccess(f(result1), next1, ans1)
+          case AGFailure(msg1, next1) =>
+            AGFailure(msg1, next1)
         }
     }
 
     def flatMap[U](f: T => AGParser[U]) = AGParser[U] {
       case (ans: Answer, input: Input) =>
         this(ans, input) match {
-          case AGSuccess(result, next, ans) =>
-            f(result)(ans, next)
-          case Failure(msg, next) =>
-            AGFailure[U](msg, next)
+          case AGSuccess(result1, next1, ans1) =>
+            f(result1)(ans1, next1)
+          case AGFailure(msg1, next1) =>
+            AGFailure(msg1, next1)
+        }
+    }
+
+    def flatMapA[U](f: (T, Answer) => AGParser[U]) = AGParser[U] {
+      case (ans: Answer, input: Input) =>
+        this(ans, input) match {
+          case AGSuccess(result1, next1, ans1) =>
+            f(result1, ans1)(ans1, next1)
+          case AGFailure(msg1, next1) =>
+            AGFailure(msg1, next1)
         }
     }
 
@@ -58,67 +70,110 @@ trait AGParsers extends StandardTokenParsers with Signature {
       //include Answer in the signature?
       case (ans: Answer, input: Input) =>
         this(ans, input) match {
-          case AGSuccess(result, next, ans) =>
-            AGSuccess(f, next, ans)
-          case Failure(msg, next) =>
-            AGFailure[U](msg, next)
+          case AGSuccess(result1, next1, ans1) =>
+            AGSuccess(f, next1, ans1)
+          case AGFailure(msg1, next1) =>
+            AGFailure(msg1, next1)
         }
     }
 
-    def ~[U](that: AGParser[U]) = AGParser[(T, U)] {
+    //FIXME: we could also accept
+    def |[U >: T](that: AGParser[U]) = AGParser[U] {
+      case (ans: Answer, input: Input) =>
+        this(ans, input) match {
+          case s:AGSuccess[U] => s //return result of first parser
+          case _ => that(ans, input) //or apply the second parser
+        }
+    }
+
+    def ~[U](that: AGParser[U]) = AGParser[~[T, U]] {
       //use the companion object instead of constructing new parser by hand
       case (ans: Answer, input: Input) =>
         this(ans, input) match {
           //the current parser
           case AGSuccess(result1, next1, ans1) =>
-            that(ans1, next1) match {
+            that(ans, next1) match { //FIXME: use ans 1 or 2?
               //the following parser, piped ans "environment"
               case AGSuccess(result2, next2, ans2) =>
-                Success((result1, result2), next2, ans2) //ans2 is piped "environment"
+                AGSuccess(new ~(result1, result2), next2, ans) //FIXME: ans2 is piped "environment"
               case AGFailure(msg2, next2) =>
-                AGFailure[(T, U)](msg2, next2)
+                AGFailure(msg2, next2)
             }
           case AGFailure(msg1, next1) =>
-            AGFailure[(T, U)](msg1, next1)
+            AGFailure(msg1, next1)
         }
     }
 
-    def ~>[U](that: AGParser[U]) = {
-      this.~(that) match {
+    //"PIPE" environment through without collecting new one
+    def ~~[U](that: AGParser[U]) = AGParser[(T, U)] {
+      //use the companion object instead of constructing new parser by hand
+      case (ans: Answer, input: Input) =>
+        this(ans, input) match {
+          case AGSuccess(result1, next1, ans1) =>
+            that(ans, next1) match { //use initial anser / environment
+              case AGSuccess(result2, next2, ans2) =>
+                AGSuccess((result1, result2), next2, ans2) //FIXME: which ans to return?
+              case AGFailure(msg2, next2) =>
+                AGFailure(msg2, next2)
+            }
+          case AGFailure(msg1, next1) =>
+            AGFailure(msg1, next1)
+        }
+    }
+
+    def ~>[U](that: AGParser[U]) = AGParser[U] {
+      case (ans: Answer, input: Input) => this.~(that)(ans, input) match {
         case AGSuccess((t: T, u: U), next, ans) =>
           AGSuccess[U](u, next, ans)
-        case Failure(msg1, next1) =>
-          Failure[U](msg1, next1)
+        case AGFailure(msg1, next1) =>
+          AGFailure(msg1, next1)
       }
     }
 
-    def <~[U](that: AGParser[U]) = {
-      this.~(that) match {
+    def <~[U](that: AGParser[U]) = AGParser[T] {
+      case (ans: Answer, input: Input) => this.~(that) match {
         case AGSuccess((t: T, u: U), next, ans) =>
           AGSuccess[T](t, next, ans)
         case AGFailure(msg1, next1) =>
-          AGFailure[T](msg1, next1)
+          AGFailure(msg1, next1)
       }
     }
 
-    def StringParser(s:String) = AGParser[T] {
-
+    def failureAG(s:String) = AGParser[T] {
+      case (ans: Answer, input: Input) =>
+        failure(s)(input) match {
+          case Success(result, next) => AGSuccess[T](result, next, ans)
+          case Failure(msg, next) => AGFailure(msg, next)
+        }
     }
   }
 
-  object AGParser extends Parser {
+
+  object AGParser {
     //companion object to build new parsers without the need for and "val outer = this" reference
     def apply[V](f: (Answer, Input) => AGParseResult[V]) = new AGParser[V] {
       def apply(ans: Answer, input: Input) = f(ans, input)
     }
-    //for interability with the string parsers:
-    def apply[V](f: Input => ParseResult[V]) = new AGParser[V] {
-      def apply(ans: Answer, input: Input) = f(input) match {
-        case NoSuccess(msg, next) => AGFailure(msg, next)
-        case Success(res, next) => AGSuccess(res, next, ans) //FIXME: defaultAnswer
-      }
-    }
+
+
+    //for interability with simple parsers:
+//    def apply[V](f: Input => ParseResult[V]) = new AGParser[V] {
+//      def apply(ans: Answer, input: Input) = f(input) match {
+//        case NoSuccess(msg, next) => AGFailure(msg, next)
+//        case Success(res, next) => AGSuccess(res, next, ans) //FIXME: defaultAnswer
+//      }
+//    }
   }
+
+  def lift[T](pars:Parser[T]) = AGParser[T] {
+    case (ans: Answer, input: Input) =>
+      pars(input) match {
+        case Success(result, next) => AGSuccess[T](result, next, ans) //
+        case Failure(msg, next) => AGFailure(msg, next)
+      }
+  }
+
+  def liftS(s:String) = lift(keyword(s))
 }
 
 

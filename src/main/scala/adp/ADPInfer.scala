@@ -42,7 +42,7 @@ object ADPInfer extends scala.App {
 
     def Term(implicit a: Answer): Parser[Answer] =
       SimpleTerm ^^ (x => x) | {
-        SimpleTerm flatMap {case a1 => Term(a1) map {case ans => app(a1, ans)} } //app foldleft -> env not really needed here!
+        SimpleTerm flatMap {case a1 => Term(a1) map {case ans => app(a1, ans)} } //FIXME: app foldleft -> env not really needed here!
         //(SimpleTerm >> (res => Term(res))) ^^ (x => x) //FIXME
       } | // => val combine(x, Term(x))} | //~ rep(SimpleTerm) ^^ { case t ~ ts => (t :: ts).reduceLeft[Term](App)}
         failure("illegal start of term")
