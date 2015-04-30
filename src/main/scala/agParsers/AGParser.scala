@@ -116,14 +116,14 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     }
 
     //"PIPE" environment through without collecting new one
-    def ~~[U](that: AGParser[U]) = AGParser[(T, U)] {
+    def ~~[U](that: AGParser[U]) = AGParser[~[T, U]] {
       //use the companion object instead of constructing new parser by hand
       case (ans: Answer, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
             that(ans, next1) match { //use initial anser / environment
               case AGSuccess(result2, next2, ans2) =>
-                AGSuccess((result1, result2), next2, ans2) //FIXME: which ans to return?
+                AGSuccess(new ~(result1, result2), next2, ans2) //FIXME: which ans to return?
               case AGFailure(msg2, next2) =>
                 AGFailure(msg2, next2)
             }
@@ -134,7 +134,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
     def ~>[U](that: AGParser[U]) = AGParser[U] {
       case (ans: Answer, input: Input) => this.~(that)(ans, input) match {
-        case AGSuccess((t: T, u: U), next, ans) =>
+        case AGSuccess(~(t: T, u: U), next, ans) =>
           AGSuccess[U](u, next, ans)
         case AGFailure(msg1, next1) =>
           AGFailure(msg1, next1)
@@ -142,8 +142,8 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     }
 
     def <~[U](that: AGParser[U]) = AGParser[T] {
-      case (ans: Answer, input: Input) => this.~(that) match {
-        case AGSuccess((t: T, u: U), next, ans) =>
+      case (ans: Answer, input: Input) => this.~(that)(ans, input) match {
+        case AGSuccess(~(t: T, u: U), next, ans) =>
           AGSuccess[T](t, next, ans)
         case AGFailure(msg1, next1) =>
           AGFailure(msg1, next1)
@@ -185,11 +185,11 @@ trait AGParsers extends StandardTokenParsers with AGSig {
   }
   def liftS(s:String) = lift(keyword(s))
 
-  def rep[T](pars: AGParser[T]) = AGParser[List[T]] {
+  def rep[T](pars: AGParser[T]):AGParser[List[T]] = AGParser[List[T]] {
     case (ans: Answer, input: Input) =>
       pars(ans, input) match {
         case AGSuccess(result1, next1, ans1) =>
-          (rep(pars)(ans, next1)) match {
+          (rep(pars))(ans, next1) match {
             case AGSuccess(result2:List[T], next2, ans2) => AGSuccess[List[T]](result1 :: result2, next1, ans1 ) //FIXME: propagate new ans?
             //should never happen:
             case AGFailure(msg2, next2) => AGSuccess[List[T]](result1 :: Nil, next1, ans1 )

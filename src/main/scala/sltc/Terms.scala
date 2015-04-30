@@ -61,7 +61,7 @@ case object NatType extends TypeTree {
 
 case class FunType(t1: TypeTree, t2: TypeTree) extends TypeTree {
   override def toString = (t1,t2) match {
-    case (_: Function, _) => "("+t1+")->"+t2 //protect left association because right associative by default
+    case (_: FunType, _) => "("+t1+")->"+t2 //protect left association because right associative by default
     case _ => t1+"->"+t2
   }
 }

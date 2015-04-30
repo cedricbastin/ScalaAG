@@ -4,18 +4,9 @@ package sltc
  * Created by cedricbastin on 26/04/15.
  */
 class SltcTypingAlgebra extends StlcSig {
-  case class Answer(env: TopEnv, tpe: Type)
-  //type Answerx = Answer => Answer
-  //inherited: nothing in this case
-  type TopEnv = Map[String, BotEnvElem]
-  type TopEnvElem = Type
-  //sythezised
-  type BotEnv = Nothing
-  type BotEnvElem = Nothing
+  case class Answer(env: Env, tpe: Type)
+  type Env = Map[String, Type]
 
-  //def defAns = TypeBool
-
-  def tru():Answerx = {_.copy(tpe = TypeBool)} //lazily evaluate
   def tru():Answer = Answer(Map(), TypeBool)
   def fals: Answer = Answer(Map(), TypeBool)
 
@@ -52,8 +43,8 @@ class SltcTypingAlgebra extends StlcSig {
   }
 
   def abs(ident:String, ty:Type, ax:AnswerF): AnswerF = {
-    x =>
-      val body = ax(x.addTopEnv((ident, ty))
+    a =>
+      val body = ax(a.copy(env = a.env + (ident -> ty)))
       body.copy(tpe = TypeFun(ty, body.tpe))
   }
 

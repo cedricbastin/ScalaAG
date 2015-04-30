@@ -9,10 +9,10 @@ trait AGSig {
    * It can contain the result of the current parsing
    * it can contain an environment of inherited attributes
    * it can contain an environment of synthecised attributed
+   * the user can define those environments/ attributes as he likes
    */
 
   type Answer
-  //lazily computed environment:
-  type AnswerF = Answer => Answer
+  type AnswerF = Answer => Answer //lazily computed environment
   def combine(a:Answer):Answer
 }
