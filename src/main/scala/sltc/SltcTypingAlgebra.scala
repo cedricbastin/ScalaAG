@@ -5,7 +5,7 @@ package sltc
  */
 class SltcTypingAlgebra extends StlcSig {
   case class Answer(env: TopEnv, tpe: Type)
-  type Answerx = Answer => Answer
+  //type Answerx = Answer => Answer
   //inherited: nothing in this case
   type TopEnv = Map[String, BotEnvElem]
   type TopEnvElem = Type
@@ -51,9 +51,9 @@ class SltcTypingAlgebra extends StlcSig {
     a
   }
 
-  def abs(ident:String, ty:Type, ax:Answerx): Answerx = {
+  def abs(ident:String, ty:Type, ax:AnswerF): AnswerF = {
     x =>
-      val body = ax(x.copy(env = (ident, ty)::x.env))
+      val body = ax(x.addTopEnv((ident, ty))
       body.copy(tpe = TypeFun(ty, body.tpe))
   }
 

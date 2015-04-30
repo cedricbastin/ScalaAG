@@ -32,7 +32,18 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     // (* -> *) -> * -> *
     // A -> E -> M A
 
-      //FIXME: should mapping include answer treatment or not?
+
+    def mapWithEnv[U](f: (T, Answer) => U) = AGParser[U] {
+      case (ans: Answer, input: Input) =>
+        this(ans, input) match {
+          case AGSuccess(result1, next1, ans1) =>
+            AGSuccess(f(result1, ans), next1, ans1)
+          case AGFailure(msg1, next1) =>
+            AGFailure(msg1, next1)
+        }
+    }
+
+    //FIXME: should mapping include answer treatment or not?
     def map[U](f: T => U) = AGParser[U] {
       //include Answer in the signature?
       case (ans: Answer, input: Input) =>
@@ -172,8 +183,20 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         case Failure(msg, next) => AGFailure(msg, next)
       }
   }
-
   def liftS(s:String) = lift(keyword(s))
+
+  def rep[T](pars: AGParser[T]) = AGParser[List[T]] {
+    case (ans: Answer, input: Input) =>
+      pars(ans, input) match {
+        case AGSuccess(result1, next1, ans1) =>
+          (rep(pars)(ans, next1)) match {
+            case AGSuccess(result2:List[T], next2, ans2) => AGSuccess[List[T]](result1 :: result2, next1, ans1 ) //FIXME: propagate new ans?
+            //should never happen:
+            case AGFailure(msg2, next2) => AGSuccess[List[T]](result1 :: Nil, next1, ans1 )
+          }
+        case AGFailure(msg1, next1) => AGSuccess[List[T]](Nil, next1, ans) //FIXME: is this a safe way to do this?
+      }
+  }
 }
 
 

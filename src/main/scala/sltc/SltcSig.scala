@@ -17,7 +17,10 @@ trait StlcSig extends agParsers.AGSig {
   def iff(a1: Answer, a2: Answer, a3: Answer): Answer
 
   def vari(s:String, a:Answer): Answer
-  def abs(ident:String, ty:Type, a:Answer): Answer //XXX: TypeTree
+  def absHead(ident:String, ty:Type): Answer
+  def abs(tpe:Answer, a:Answer): Answer //Type instead of Answer
+  def abs(ident:String, ty:Type, a:Answer): Answer
+
 
   def app(a1: Answer, a2: Answer): Answer
 }

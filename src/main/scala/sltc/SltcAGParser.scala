@@ -52,11 +52,18 @@ object SltcAGParser extends App {
 //      }
 //    }
 
+    def AbsHead: AGParser[Answer] = {
+      lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^ {
+        case "\\" ~ x ~ ":" ~ tp ~ "." =>
+          absHead(x, tp)
+      }
+    }
+
     def SimpleTerm: AGParser[Answer] = {
-//      lift(keyword("true")) ~ lift(keyword("false")) ~ SimpleTerm  ^^ {
-//        case dfsgfg ~ sdf ~ sdfd => tru
-//      } |
-        lift("true") ^^^ {
+      //      lift(keyword("true")) ~ lift(keyword("false")) ~ SimpleTerm  ^^ {
+      //        case dfsgfg ~ sdf ~ sdfd => tru
+      //      } |
+      lift("true") ^^^ {
         tru
       } | lift("false") ^^^ {
         fals
@@ -70,52 +77,32 @@ object SltcAGParser extends App {
         iszero(_)
       } | lift("if") ~ Term ~ lift("then") ~ Term ~ lift("else") ~ Term ^^ {
         case "if" ~ t1 ~ "then" ~ t2 ~ "else" ~ t3 => iff(t1, t2, t3)
-//      } | lift(ident) ^^ {
-//        x => vari (x, defAnswer) //FIXME: environment env
-      } | lift("\\") ~ ident ~ lift(":") ~ Type ~ lift(".") ~ Term ^^ {
-          case "\\" ~ x ~ ":" ~ tp ~ "." ~ term =>
-            abs(x, tp.toType, term)
-      } | lift("\\") ~ ident ~ lift(":") ~ Type.flatMap {
-        case "\\" ~ x ~ ":" ~ tp =>
-          //FIXME: access answer?
-          (lift(".") ~> Term) ^^ {
-            case a => abs(x, tp, a)}
+      } | (lift(ident) mapWithEnv {
+        case (x, a) => vari(x, a) //extract environemnt
+      }) | AbsHead ~ Term ^^ {
+        //pipe environment
+        case head ~ term =>
+          abs(head, term)
       } | lift("(") ~> Term <~ lift(")") ^^ {
         case t => t
       } | lift(failure("illegal start of simple term"))
 
-    def Type: Parser[TypeTree] = positioned(
-      BaseType ~ opt("->" ~ Type) ^^ {
-        case t1 ~ Some("->" ~ t2) => FunType(t1, t2)
-        case t1 ~ None => t1
-      } | failure("illegal start of type"))
+      def TypePars: AGParser[Type] = {
+        BaseType ^^ {
+          x => x
+        } | BaseType ~ TypePars ^^ {
+          case t1 ~ t2 => TypeFun(t1, t2) //right associative?
+        } | failure("illegal start of type")
+      }
 
-    def BaseType: Parser[TypeTree] = positioned(
-      "Bool" ^^^ BoolType
-        | "Nat" ^^^ NatType
-        | "(" ~> Type <~ ")" ^^ { case t => t}
-    )
-    }
-
-
-//  trait ParsingAlgebra extends StlcSig {
-//    type Answer = Term //no env needed
-//    def tru = True
-//    def fals = False
-//
-//    def num(s: String) = Infer.lit2Num(s.toInt)
-//    def succ(a: Answer) = Succ(a)
-//    def pred(a: Answer) = Pred(a)
-//    def iszero(a: Answer) = IsZero(a)
-//
-//    def iff(a1: Answer, a2: Answer, a3: Answer) = If(a1, a2, a3)
-//
-//    def vari(s:String, a:Answer) = Var(s)
-//    def abs(ident:String, ty:TypeScheme, a:Answer) = Abs2(ident, ty.tp, a)
-//    def let(x: String, v: Answer, t: Answer) = Let(x, v, t)
-//
-//    def app(a1: Answer, a2: Answer) = App(a1, a2)
-//  }
-
-
+      def BaseType: AGParser[Type] = {
+        lift("Bool") ^^^ {
+          TypeBool
+        } | lift("Nat") ^^^ {
+          TypeNat
+        } | lift("(") ~> TypePars <~ lift(")") ^^ {
+          case x => x
+        }
+      }
+  }
 }
