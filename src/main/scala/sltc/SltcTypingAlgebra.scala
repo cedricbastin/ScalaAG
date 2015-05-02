@@ -3,7 +3,7 @@ package sltc
 /**
  * Created by cedricbastin on 26/04/15.
  */
-class SltcTypingAlgebra extends StlcSig {
+trait SltcTypingAlgebra extends StlcSig {
   case class Answer(env: Env, tpe: Type)
   type Env = Map[String, Type]
 
@@ -38,8 +38,17 @@ class SltcTypingAlgebra extends StlcSig {
   }
 
   //FIXME: we need to pass the new environment to the abstraction body!!
+  def absHead(ident:String, ty:Type): Answer = {
+    Answer(Nil.toMap, ty)
+  }
+
+  def abs(a1:Answer, a2:Answer): Answer = {
+    a1 //FIXME
+  }
+
   def abs(ident:String, ty:Type, a:Answer): Answer = {
-    a
+      val body = a.copy(env = a.env + (ident -> ty))
+      body.copy(tpe = TypeFun(ty, body.tpe))
   }
 
   def abs(ident:String, ty:Type, ax:AnswerF): AnswerF = {

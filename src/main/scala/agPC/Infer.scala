@@ -16,8 +16,8 @@ object Infer extends StandardTokenParsers {
     * Term     ::= SimpleTerm { SimpleTerm }</pre>
     */
   def Term: Parser[Term] = positioned(
-    SimpleTerm ~ rep(SimpleTerm) ^^ { case t ~ ts => (t :: ts).reduceLeft[Term](App)}
-      | failure("illegal start of term"))
+      SimpleTerm ~ rep(SimpleTerm) ^^ { case t ~ ts => (t :: ts).reduceLeft[Term](App)} |
+      failure("illegal start of term"))
 
 
   /** <pre>

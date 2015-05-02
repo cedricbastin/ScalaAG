@@ -1,0 +1,49 @@
+true
+false
+0
+3
+pred pred 0
+succ 0
+pred 4
+(\x:Nat. pred x)
+(\x:Nat. iszero x)
+(\x:Bool. if x then 0 else succ 1) false
+(\x:Nat. pred x) succ 5
+(\x:Bool.\y:Nat.\z:Nat. if x then y else succ(z))
+test
+/*(\x.\y:Nat.\z. if x then y else z)
+/*(\x.\y. if x then y else 0)
+/*(\x.\y.\z. if x then pred(y) else z)
+/*(\x. x)
+/*(\x. succ(x)) 0
+/*(\x. succ(x)) ((\x. pred x) 0)
+/*the following should fail:
+/*(\x. if x then succ(x) else pred(x))
+/* Testing if the order matters
+/*(\x. if (\x. x)true then x else succ x)
+/*let double = \f.\x. f(f(x)) in if(double(\x:Bool. if x then false else true) false) then double(\x:Nat. succ x) 0 else 0
+/*(\x. let double = \f.\x.f(f(x)) in if (double (\x:Bool. if x then false else true) false) then double (\x:Nat. succ x) 0 else x)
+/*let x = (\y.y) in if ( x true) then (x 0) else (x 1)
+/*let x = (\y.y) in if true then (x 3) else (x 1)
+/*let x= (\y.y) in x 3
+/*\b. let x = \a. b in if x true then 0 else 0
+/*\a. \b:Nat. \c. let y = \y. y in if let tr = \x. succ(x) in iszero tr 0 then a else let x = \a. c in x b
+/*\a. \b. if true then a else let x = \b. a in x 0
+/*\b. let x = \a. b in if x true then 0 else 0
+/*\b. let x = \a. iszero b in x true
+/*\b. let x = iszero b in if b then b else b
+/*\b. let x = \a. b in if x true then 0 else 0
+/*\b. let x = \a. iszero b in x true
+/*\b. let x = iszero b in if b then b else b
+/*let double = \f.\x.f(f(x)) in if (double (\x:Bool. if x then false else true) false) then double (\x:Nat. succ x) 0 else 0
+/*let double = \f.\x.f(f(x)) in let quadruple = double double in if (quadruple (\x:Bool. if x then false else true) false) then quadruple (\x:Nat. succ x) 0 else 0
+/*let double = \f.\x.f(f(x)) in let quadruple = double double in let eight = quadruple quadruple in if (quadruple (\x:Bool. if x then false else true) false) then quadruple (\x:Nat. succ x) 0 else 0
+/*(\x. \x. x) true 0
+/*(\x. \x. x) 0 false
+/*let double = \f.\x.f(f(x)) in let quadruple = double double in let eight = quadruple quadruple in if (iszero quadruple (\x. succ x) 0) then eight (\x. if x then false else true) false else true
+/*(\x. let double = \f.\x.f(f(x)) in if (double (\x:Bool. if x then false else true) false) then double (\x:Nat. succ x) 0 else x)
+/*let x = (\y.y) in if ( x true) then (x 0) else (x 1)
+/*let double = \f.\x. f(f(x)) in if(double(\x:Bool. if x then false else true) false) then double(\x:Nat. succ x) 0 else 0
+/*\b. let x = \a. b in if x true then 0 else 0
+/*\x. let iszr= iszero x in iszr
+/*\x. let is= iszero x in \x. let ii= if is then succ x else pred x in ii

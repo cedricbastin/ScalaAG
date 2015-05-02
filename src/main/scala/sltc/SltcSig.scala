@@ -1,11 +1,10 @@
 package sltc
+import agParsers._
 
 /**
  * Created by cedricbastin on 26/04/15.
  */
-trait StlcSig extends agParsers.AGSig {
-
-
+trait StlcSig extends AGSig {
   def tru: Answer
   def fals: Answer
 
@@ -18,9 +17,8 @@ trait StlcSig extends agParsers.AGSig {
 
   def vari(s:String, a:Answer): Answer
   def absHead(ident:String, ty:Type): Answer
-  def abs(tpe:Answer, a:Answer): Answer //Type instead of Answer
+  def abs(tpe:Answer, a:Answer): Answer //FIXME: Type instead of Answer
   def abs(ident:String, ty:Type, a:Answer): Answer
-
 
   def app(a1: Answer, a2: Answer): Answer
 }

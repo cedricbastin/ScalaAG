@@ -93,6 +93,11 @@ case object TypeBool extends Type {
   override def toString = "Bool"
 }
 
+case object TypeUnit extends Type {
+  def collectTV = Set.empty[String]
+  override def toString = "Unit"
+}
+
 case class WrongType(msg: String) extends Type {
   def collectTV = Set.empty[String]
   override def toString = "Wrong type: "+msg
