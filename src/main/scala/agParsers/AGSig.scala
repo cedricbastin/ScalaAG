@@ -14,5 +14,5 @@ trait AGSig {
 
   type Answer
   type AnswerF = Answer => Answer //lazily computed environment
-  //def combine(a:Answer):Answer //FIXEME: add this
+  def combine(a1:Answer, a2:Answer):Answer
 }

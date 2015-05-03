@@ -22,40 +22,20 @@ trait StlcGrammar extends AGParsers with StlcSig {
     SimpleTerm ^^ {
       x => x
     } | {
-      SimpleTerm ~ rep(SimpleTerm) ^^ { //rep(SimpleTerm)
-        //environemnt is collected and piped!
+      SimpleTerm ~ rep(SimpleTerm) ^^ {
         case a1 ~ a2 =>
-          //app(a1,a2)
           (a1 :: a2).reduceLeft[Answer](app)
       }
-      //(SimpleTerm >> (res => Term(res))) ^^ (x => x) //FIXME
-      //SimpleTerm ~ rep(SimpleTerm) ^^ { case t ~ ts => (t :: ts).reduceLeft[Term](App)}
-    } | // => val combine(x, Term(x))} | //
-      lift(failure("illegal start of term"))
+    } | lift(failure("illegal start of term"))
   }
 
-
-
-  //    def addEnv():AGParser[Answer] = AGParser[Answer] {
-  //      case (ans: Answer, input: Input) =>
-  //        ("\\" ~ ident ~ ":" ~ Type).flatMapA {
-  //          case ("\\" ~ x ~ ":" ~ tp, ans) =>
-  //            AGSuccess(tp, next, ans.add)
-  //          //flatmap only works on success values?
-  //      }
-  //    }
-
+  //special case which need special handling
   def AbsHead: AGParser[Answer] = {
-    lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^ {
-      case "\\" ~ x ~ ":" ~ tp ~ "." =>
-        absHead(x, tp)
-    }
+    lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>>>
+      {case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)}
   }
 
   def SimpleTerm: AGParser[Answer] = {
-    //      lift(keyword("true")) ~ lift(keyword("false")) ~ SimpleTerm  ^^ {
-    //        case dfsgfg ~ sdf ~ sdfd => tru
-    //      } |
     lift("true") ^^^ {
       tru
     } | lift("false") ^^^ {
@@ -70,10 +50,9 @@ trait StlcGrammar extends AGParsers with StlcSig {
       iszero(_)
     } | lift("if") ~ Term ~ lift("then") ~ Term ~ lift("else") ~ Term ^^ {
       case "if" ~ t1 ~ "then" ~ t2 ~ "else" ~ t3 => iff(t1, t2, t3)
-    } | (lift(ident) mapWithEnv {
-      case (x, a) => vari(x, a) //extract environemnt
-    }) | AbsHead ~ Term ^^ {
-      //pipe environment
+    } | lift(ident) >>^^ {
+      case (x, a) => vari(x, a) //we need the environment to determine the type
+    } | AbsHead ~>> Term ^^ { //pipe augmented answer with environment
       case head ~ term =>
         abs(head, term)
     } | lift("(") ~> Term <~ lift(")") ^^ {
@@ -85,7 +64,7 @@ trait StlcGrammar extends AGParsers with StlcSig {
     BaseType ^^ {
       x => x
     } | BaseType ~ TypePars ^^ {
-      case t1 ~ t2 => TypeFun(t1, t2) //right associative?
+      case t1 ~ t2 => TypeFun(t1, t2) //right associative, no need for left recursion
     } | lift(failure("illegal start of type"))
   }
 

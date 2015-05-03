@@ -18,8 +18,7 @@ object TypingTest extends App {
         val parsed = Term(defans, tokens)
         parsed match {
           case AGSuccess(res, next, ans) =>
-            println(res)
-            //println(res.tpe+" env: "+res.env)
+            println(res.tpe)
           case e =>
             println(e)
         }

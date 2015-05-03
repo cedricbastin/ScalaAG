@@ -3,6 +3,7 @@ import agParsers._
 
 /**
  * Created by cedricbastin on 26/04/15.
+ * A generic algebra which can be reused for different semantic implementations
  */
 trait StlcSig extends AGSig {
   def tru: Answer
@@ -17,8 +18,8 @@ trait StlcSig extends AGSig {
 
   def vari(s:String, a:Answer): Answer
   def absHead(ident:String, ty:Type): Answer
-  def abs(tpe:Answer, a:Answer): Answer //FIXME: Type instead of Answer
-  def abs(ident:String, ty:Type, a:Answer): Answer
+  def abs(tp:Answer, a:Answer): Answer
+  def abs(ident:String, ty:Type, a:AnswerF): AnswerF //use this with AnswerF
 
   def app(a1: Answer, a2: Answer): Answer
 }
