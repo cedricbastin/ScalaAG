@@ -19,20 +19,17 @@ trait StlcGrammar extends AGParsers with StlcSig {
   lexical.reserved ++= List("Bool", "Nat", "true", "false", "if", "then", "else", "succ", "pred", "iszero", "let", "in")
 
   def Term: AGParser[Answer] = {
-    SimpleTerm ^^ {
-      x => x
-    } | {
-      SimpleTerm ~ rep(SimpleTerm) ^^ {
-        case a1 ~ a2 =>
-          (a1 :: a2).reduceLeft[Answer](app)
-      }
+    SimpleTerm ~ rep(SimpleTerm) ^^ {
+      case a1 ~ a2 =>
+        (a1 :: a2).reduceLeft[Answer](app)
     } | lift(failure("illegal start of term"))
   }
 
   //special case which need special handling
   def AbsHead: AGParser[Answer] = {
-    lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>>>
-      {case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)}
+    lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>>> {
+      case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
+    }
   }
 
   def SimpleTerm: AGParser[Answer] = {
@@ -61,10 +58,10 @@ trait StlcGrammar extends AGParsers with StlcSig {
   }
 
   def TypePars: AGParser[Type] = {
-    BaseType ^^ {
+    BaseType ~ lift("->") ~ TypePars ^^  {
+      case t1 ~ "->" ~ t2 => TypeFun(t1, t2) //right associative, no need for left recursion
+    } | BaseType ^^ { //order of parser combinators is important such that
       x => x
-    } | BaseType ~ TypePars ^^ {
-      case t1 ~ t2 => TypeFun(t1, t2) //right associative, no need for left recursion
     } | lift(failure("illegal start of type"))
   }
 

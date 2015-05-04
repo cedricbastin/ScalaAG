@@ -1,3 +1,4 @@
+/*BASE VALUES
 true
 false
 0
@@ -5,13 +6,22 @@ false
 pred pred 0
 succ 0
 pred 4
+if true then 0 else succ 1
+/*ABSTRACTIONS
 (\x:Nat. x)
 (\x:Nat. iszero x)
 (\x:Bool. if x then 0 else succ 1) false
 (\x:Nat. pred x) succ 5
 (\x:Bool.\y:Nat.\z:Nat. if x then y else succ(z))
-test
-(\x.\y:Nat.\z. if x then y else z)
+/*FIRST ORDER FUNCTIONS
+(\f:(Nat -> Bool). 0)
+(\f:Nat -> Bool. f 0) (\x:Nat. iszero x )
+/*VARIABLE MASKING?
+(\x:Nat. (\x:Bool. x) iszero x)
+(\x:Nat. if true then x else ((\x:Bool. 3) true))
+if true then (\x:Bool. x) else (\y:Bool. y)
+/*FOS TESTS:
+/*(\x.\y:Nat.\z. if x then y else z)
 /*(\x.\y. if x then y else 0)
 /*(\x.\y.\z. if x then pred(y) else z)
 /*(\x. x)

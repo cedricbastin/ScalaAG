@@ -13,4 +13,8 @@ libraryDependencies += "org.scala-lang" % "scala-compiler" % "2.11.5"
 
 libraryDependencies += "com.github.begeric" % "tqlscalameta_2.11" % "0.1-SNAPSHOT"
 
-scalacOptions += "-feature"
+libraryDependencies += "EPFL" % "lms_2.11" % "0.3-SNAPSHOT"
+
+scalacOptions ++= Seq(
+  "-feature"
+)
