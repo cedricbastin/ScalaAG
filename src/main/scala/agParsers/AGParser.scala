@@ -74,7 +74,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
     def >>^^[U](f: (T, Answer) => U) = mapWithAns(f)
 
-    def mapIntoAns[U](f: T => U)(add:(Answer, U) => Answer) = AGParser[U] {
+    def mapIntoAns[U](f: T => U, add:(Answer, U) => Answer) = AGParser[U] {
       case (ans: Answer, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, _) =>
@@ -86,7 +86,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     }
 
     def
-    ^^>>[U](f: (T) => U)(add:(Answer, U) => Answer) = mapIntoAns(f)(add)
+    ^^>>[U](f: T => U, add:(Answer, U) => Answer) = mapIntoAns(f, add)
 
 //    def mapWithAnsIntoAns[U](f:(T, Answer) => U)(add:(Answer, U) => Answer) = {
 //      case (ans: Answer, input: Input) =>
