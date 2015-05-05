@@ -29,6 +29,11 @@ trait StlcGrammar extends AGParsers with StlcSig {
   def AbsHead: AGParser[Answer] = {
     lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>>> {
       case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
+      //      case ~("\\", ~(x: String, ~(":", ~(tp: Type, ".")))) => absHead(x, tp)
+      //      //~("\\", ~(x: String, ~(":", ~(tp: Type, "."))))
+      //      // "\\" ~ x ~ ":" ~ tp ~ "."
+      //      //[~[String, ~[String, ~[String, Type]]]]
+      //    })({case (x:Answer,y:Answer) => combine(x,y)})
     }
   }
 
@@ -49,7 +54,7 @@ trait StlcGrammar extends AGParsers with StlcSig {
       case "if" ~ t1 ~ "then" ~ t2 ~ "else" ~ t3 => iff(t1, t2, t3)
     } | lift(ident) >>^^ {
       case (x, a) => vari(x, a) //we need the environment to determine the type
-    } | AbsHead ~>> Term ^^ { //pipe augmented answer with environment
+    } | AbsHead >>~ Term ^^ { //pipe augmented answer with environment
       case head ~ term =>
         abs(head, term)
     } | lift("(") ~> Term <~ lift(")") ^^ {

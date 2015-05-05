@@ -1,7 +1,6 @@
 package agParsers
 
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
-import scala.virtualization.lms.common._
 
 trait AGSig {
   /**
@@ -43,8 +42,8 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     def map[U](f: T => U) = AGParser[U] {
       case (ans: Answer, input: Input) =>
         this(ans, input) match {
-          case AGSuccess(result1, next1, ans1) =>
-            AGSuccess(f(result1), next1, ans1)
+          case AGSuccess(result1, next1, _) =>
+            AGSuccess(f(result1), next1, ans)
           case AGFailure(msg1, next1) =>
             AGFailure(msg1, next1)
         }
@@ -56,8 +55,8 @@ trait AGParsers extends StandardTokenParsers with AGSig {
       //include Answer in the signature?
       case (ans: Answer, input: Input) =>
         this(ans, input) match {
-          case AGSuccess(result1, next1, ans1) =>
-            AGSuccess(f, next1, ans1)
+          case AGSuccess(result1, next1, _) =>
+            AGSuccess(f, next1, ans)
           case AGFailure(msg1, next1) =>
             AGFailure(msg1, next1)
         }
@@ -78,7 +77,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     def mapIntoAns[U](f: T => U)(add:(Answer, U) => Answer) = AGParser[U] {
       case (ans: Answer, input: Input) =>
         this(ans, input) match {
-          case AGSuccess(result1, next1, ans1) =>
+          case AGSuccess(result1, next1, _) =>
             val res = f(result1)
             AGSuccess(res, next1, add(ans, res))
           case AGFailure(msg1, next1) =>
@@ -86,8 +85,23 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    def ^^>>[U](f: T => U)(add:(Answer, U) => Answer) = mapIntoAns(f)(add)
+    def
+    ^^>>[U](f: (T) => U)(add:(Answer, U) => Answer) = mapIntoAns(f)(add)
 
+//    def mapWithAnsIntoAns[U](f:(T, Answer) => U)(add:(Answer, U) => Answer) = {
+//      case (ans: Answer, input: Input) =>
+//        this(ans, input) match {
+//          case AGSuccess(result1, next1, ans1) =>
+//            val res = f(result1, ans1)
+//            AGSuccess(res, next1, add(ans, res))
+//          case AGFailure(msg1, next1) =>
+//            AGFailure(msg1, next1)
+//        }
+//    }
+//
+//    def >>^^>>[U](f: (T, Answer) => U)(add:(Answer, U) => Answer) = mapWithAnsIntoAns(f)(add)
+
+// A more direct way to augment answer when a Parser[Answer] is used
     def ^^>>>(f: T => Answer) = AGParser[Answer] {
       case (ans: Answer, input: Input) =>
         this(ans, input) match {
@@ -110,6 +124,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     }
 
     def >>[U](f: T => AGParser[U]) = flatMap(f)
+    def into[U](f: T => AGParser[U]) = flatMap(f)
 
     def flatMapWithAns[U](f: (T, Answer) => AGParser[U]) = AGParser[U] {
       case (ans: Answer, input: Input) =>
@@ -134,13 +149,19 @@ trait AGParsers extends StandardTokenParsers with AGSig {
    * in general only pipe original env through except for ~~
    */
 
+    /**
+     * Never augement the answer, always pipe the original answer
+     * @param that
+     * @tparam U
+     * @return
+     */
     def ~[U](that: => AGParser[U]) = AGParser[~[T, U]] {
       case (ans: Answer, input: Input) =>
         this(ans, input) match {
-          case AGSuccess(result1, next1, ans1) =>
+          case AGSuccess(result1, next1, _) =>
             that(ans, next1) match { //use original Answer
-              case AGSuccess(result2, next2, ans2) =>
-                AGSuccess(new ~(result1, result2), next2, ans)
+              case AGSuccess(result2, next2, _) =>
+                AGSuccess(new ~(result1, result2), next2, ans) //return original Answer
               case AGFailure(msg2, next2) =>
                 AGFailure(msg2, next2)
             }
@@ -149,14 +170,61 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    //augment Answer with new Environment
-    def ~>>[U](that: => AGParser[U]) = AGParser[~[T, U]] {
+    /**
+     * pipe Answer from parser1 to parser2 but not don't output as the final answer
+     * @param that
+     * @tparam U
+     * @return
+     */
+    def >>~[U](that: => AGParser[U]) = AGParser[~[T, U]] {
       case (ans: Answer, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
-            that(ans1, next1) match { //use initial anser / environment
+            that(ans1, next1) match { //use augmented answer from parser1
+              case AGSuccess(result2, next2, _) =>
+                AGSuccess(new ~(result1, result2), next2, ans) //return initial answer
+              case AGFailure(msg2, next2) =>
+                AGFailure(msg2, next2)
+            }
+          case AGFailure(msg1, next1) =>
+            AGFailure(msg1, next1)
+        }
+    }
+
+    /**
+     * pipe Answer from parser2 to global environment of the combined parser
+     * @param that
+     * @tparam U
+     * @return
+     */
+    def ~>>[U](that: => AGParser[U]) = AGParser[~[T, U]] {
+      case (ans: Answer, input: Input) =>
+        this(ans, input) match {
+          case AGSuccess(result1, next1, _) =>
+            that(ans, next1) match { //use original answer
               case AGSuccess(result2, next2, ans2) =>
-                AGSuccess(new ~(result1, result2), next2, ans)
+                AGSuccess(new ~(result1, result2), next2, ans2) //return answer from 2nd parser
+              case AGFailure(msg2, next2) =>
+                AGFailure(msg2, next2)
+            }
+          case AGFailure(msg1, next1) =>
+            AGFailure(msg1, next1)
+        }
+    }
+
+    /**
+     * pipe answer1 to parser2 and pipe answer2 to final result
+     * @param that
+     * @tparam U
+     * @return
+     */
+    def >>~>>[U](that: => AGParser[U]) = AGParser[~[T, U]] {
+      case (ans: Answer, input: Input) =>
+        this(ans, input) match {
+          case AGSuccess(result1, next1, ans1) =>
+            that(ans1, next1) match { //use new answer
+              case AGSuccess(result2, next2, ans2) =>
+                AGSuccess(new ~(result1, result2), next2, ans2) //return answer from 2nd parser
               case AGFailure(msg2, next2) =>
                 AGFailure(msg2, next2)
             }
@@ -167,7 +235,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
     def ~>[U](that: => AGParser[U]) = AGParser[U] {
       case (ans: Answer, input: Input) => this.~(that)(ans, input) match {
-        case AGSuccess(~(t: T, u: U), next, ans) =>
+        case AGSuccess(~(t: T, u: U), next, _) =>
           AGSuccess[U](u, next, ans)
         case AGFailure(msg1, next1) =>
           AGFailure(msg1, next1)
@@ -176,7 +244,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
     def <~[U](that: => AGParser[U]) = AGParser[T] {
       case (ans: Answer, input: Input) => this.~(that)(ans, input) match {
-        case AGSuccess(~(t: T, u: U), next, ans) =>
+        case AGSuccess(~(t: T, u: U), next, _) =>
           AGSuccess[T](t, next, ans)
         case AGFailure(msg1, next1) =>
           AGFailure(msg1, next1)
