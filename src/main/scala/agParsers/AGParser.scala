@@ -32,7 +32,9 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     }
   }
   //TODO: class NoSuccess extends ParseResult, Failure extends NoSuccess, Error extends NoSuccess
-  case class AGSuccess[+T](result: T, next: Input, ans: Answer) extends AGParseResult[T]
+  case class AGSuccess[+T](result: T, next: Input, ans: Answer) extends AGParseResult[T] {
+    def check = {if (result == null) AGFailure("check failed", next)}
+  }
   case class AGFailure(msg: String, next: Input) extends AGParseResult[Nothing]
 
   //T is independent from Answer but can be included as additional information in an Answer if needed
@@ -289,6 +291,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
   def rep[T](pars: AGParser[T]):AGParser[List[T]] = AGParser[List[T]] {
     case (ans, input: Input) =>
+      println("in rep: "+ans)
       pars(ans, input) match {
         case AGSuccess(result1, next1, ans1) =>
           rep(pars)(ans, next1) match {
