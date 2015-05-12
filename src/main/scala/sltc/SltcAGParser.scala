@@ -26,14 +26,16 @@ trait StlcGrammar extends AGParsers with StlcSig {
   }
 
   //special case which need special handling
+  //def add: = {case (x, y) => combine(x,y)}
+
   def AbsHead: AGParser[Answer] = {
-    lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>>[Answer] ({
+    lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>>[Answer] ({ //[Answer]
       //case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
-            case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
-            //~("\\", ~(x: String, ~(":", ~(tp: Type, "."))))
-            // "\\" ~ x ~ ":" ~ tp ~ "."
-            //[~[String, ~[String, ~[String, Type]]]]
-          }, {case (x,y) => combine(x,y)})
+      case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
+      //~("\\", ~(x: String, ~(":", ~(tp: Type, ".")))) => absHead(x, tp)
+      // "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
+      //[~[String, ~[String, ~[String, Type]]]] => absHead(x, tp)
+    }, combine)
     //}
   }
 
