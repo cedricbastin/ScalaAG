@@ -19,6 +19,8 @@ libraryDependencies += "EPFL" % "lms_2.11" % "0.3-SNAPSHOT"
 
 libraryDependencies += "default" % "functadelic_2.11" % "0.1-SNAPSHOT"
 
+libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test"
+
 scalacOptions ++= Seq(
   "-feature",
   "-Yvirtualize" //needed for virtualization of if-then-else with lms
