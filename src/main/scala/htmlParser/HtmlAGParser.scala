@@ -93,6 +93,7 @@ class HtmlTest extends HtmlGrammar with HtmlAlgebra {
     def testAll() = {
       test("<test><\\test>")
       test("<test><c1><\\c1><\\test>")
+      test("<test><c1><\\c1><c1><\\c1><c1><\\c1><\\test>")
       test("<test><\\test><c1><\\c1>")
       test("<test><c1><c2><\\c2><\\c1><\\test>")
       test("<test><c1><\\c1><c2><\\c2><\\test>")
