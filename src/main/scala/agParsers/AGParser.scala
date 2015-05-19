@@ -41,6 +41,39 @@ trait AGParsers extends StandardTokenParsers with AGSig {
   // parser combinator methods arguments need to be call by name otherwise the stack will overflow
   abstract class AGParser[+T] extends ((Answer, Input) => AGParseResult[T]) {
 
+    def validatePrim(p: T => Boolean) = AGParser[T] { //this method should be usable combined with map etc...
+      case (ans, input: Input) =>
+        this(ans, input) match {
+          case AGSuccess(result1, next1, _) =>
+            if (p(result1)) AGSuccess(result1, next1, ans)
+            else AGFailure("validation failed on: "+result1, next1)
+          case AGFailure(msg1, next1) =>
+            AGFailure(msg1, next1)
+        }
+    }
+
+    def validate(p: (T, Answer) => Boolean) = AGParser[T] { //this method should be usable combined with map etc...
+      case (ans, input: Input) =>
+        this(ans, input) match {
+          case AGSuccess(result1, next1, _) =>
+            if (p(result1, ans)) AGSuccess(result1, next1, ans)
+            else AGFailure("validation failed on: "+result1, next1)
+          case AGFailure(msg1, next1) =>
+            AGFailure(msg1, next1)
+        }
+    }
+
+    //should there be integrated methods for validation and e.g. mapping etc?
+//    def validate[U](f: (T, Answer) => (Boolean, U)) = AGParser[U] {
+//      case (ans, input: Input) =>
+//        this(ans, input) match {
+//          case AGSuccess(result1, next1, _) =>
+//            AGSuccess(f(result1), next1, ans)
+//          case AGFailure(msg1, next1) =>
+//            AGFailure(msg1, next1)
+//        }
+//    }
+
     def map[U](f: T => U) = AGParser[U] {
       case (ans, input: Input) =>
         this(ans, input) match {

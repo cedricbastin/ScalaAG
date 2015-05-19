@@ -18,6 +18,7 @@ rep => simply says “expect N-many repetitions of parser X” where X is the pa
 trait HtmlSig extends AGSig {
   def start(tag:String, a:Answer):Answer
   def end(tag:String, a:Answer):(Boolean, Answer)
+  def validate(tag:String, a:Answer):Boolean
   //def add(tag:String, a:Answer):Answer
 }
 
@@ -41,7 +42,9 @@ trait HtmlGrammar extends AGParsers with HtmlSig {
   }
 
   def End: AGParser[String] = {
-    lift("<") ~> lift("\\") ~> lift(ident) <~ lift(">") >>^^>> {
+    (lift("<") ~> lift("\\") ~> lift(ident) <~ lift(">") validate {
+      case (s, ans) => validate(s, ans)
+    }) >>^^>> {
       case (tag:String, ans:Answer) =>
         val res = end(tag, ans)
 //        if (!res._1)
@@ -58,11 +61,10 @@ trait HtmlGrammar extends AGParsers with HtmlSig {
 //  }
 
   def Container: AGParser[HtmlContainer] = {
-     Start >>~>> rep(Container) >>~>> End ^^ { //there should always be a big outer container: e.g. body
+    Start >>~>> rep(Container) >>~>> End ^^ { //validate { case start ~ cont ~ end => start == end } //TODO: validation parser is not really
       case start ~ cont ~ end => HtmlContainer(start, cont)
     } | lift(failure("illegal start of container"))
   }
-
 }
 
 trait HtmlAlgebra extends HtmlSig {
@@ -73,7 +75,10 @@ trait HtmlAlgebra extends HtmlSig {
       case x :: xs if x == tag => (true, xs)
       case _ => (false, a)
     }
-  //def add(tag:String, a:Answer):Answer = tag :: a
+  def validate(tag:String, a:Answer) = a match {
+    case x :: xs if (x == tag) => true
+    case _ => false
+  }
   def combine(a1:Answer, a2: Answer) = a1 ::: a2
 }
 
@@ -92,6 +97,8 @@ class HtmlTest extends HtmlGrammar with HtmlAlgebra {
     }
     def testAll() = {
       test("<test><\\test>")
+      test("<test><\\testx>")
+      test("<test><h1><\\h2><\\test>")
       test("<test><c1><\\c1><\\test>")
       test("<test><c1><\\c1><c1><\\c1><c1><\\c1><\\test>")
       test("<test><\\test><c1><\\c1>")

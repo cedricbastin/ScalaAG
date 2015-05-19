@@ -26,7 +26,7 @@ trait AGParseResultOps extends AGSig with Base with IfThenElse with BooleanOps {
   def AGFailure[T: Manifest](next: Rep[Input]): Rep[AGParseResult[T]] //[Nothing]
 
   //pimp my library pattern -> implicit converter
-  implicit class ParseResultCls[A: Manifest](pr: Rep[AGParseResult[A]]) {
+  implicit class AGParseResultCls[A: Manifest](pr: Rep[AGParseResult[A]]) {
     def isEmpty: Rep[Boolean] =
       parseresult_isEmpty(pr)
     def get: Rep[A] =

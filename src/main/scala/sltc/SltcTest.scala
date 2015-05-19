@@ -40,6 +40,7 @@ object TypingTest extends App {
           println("parsing failure: "+e)
       }
     }
+
     def testAll() = {
       test("true", TypeBool)
       test("0", TypeNat)
