@@ -28,29 +28,29 @@ trait AGParseResultOps extends AGSig with Base with IfThenElse with BooleanOps {
   //pimp my library pattern -> implicit converter
   implicit class AGParseResultCls[A: Manifest](pr: Rep[AGParseResult[A]]) {
     def isEmpty: Rep[Boolean] =
-      parseresult_isEmpty(pr)
+      agparseresult_isEmpty(pr)
     def get: Rep[A] =
-      parseresult_get(pr)
+      agparseresult_get(pr)
     def orElse(that: Rep[AGParseResult[A]]) =
-      parseresult_orElse(pr, that)
+      agparseresult_orElse(pr, that)
     def next: Rep[Input] =
-      parseresult_next(pr)
+      agparseresult_next(pr)
     def ans: Rep[Answer] =
-      parseresult_ans(pr)
+      agparseresult_ans(pr)
 
-    def map[B: Manifest](f: Rep[A] => Rep[B]) = parseresult_map(pr, f)
+    def map[B: Manifest](f: Rep[A] => Rep[B]) = agparseresult_map(pr, f)
     //other fucntions
   }
 
-  def parseresult_isEmpty[A: Manifest](pr: Rep[AGParseResult[A]]) (implicit pos: SourceContext): Rep[Boolean]
-  def parseresult_get[A: Manifest](pr: Rep[AGParseResult[A]])     (implicit pos: SourceContext): Rep[A]
-  def parseresult_next[A: Manifest](pr: Rep[AGParseResult[A]])    (implicit pos: SourceContext): Rep[Input]
-  def parseresult_ans[A: Manifest](pr: Rep[AGParseResult[A]])     (implicit pos: SourceContext): Rep[Answer]
+  def agparseresult_isEmpty[A: Manifest](pr: Rep[AGParseResult[A]]) (implicit pos: SourceContext): Rep[Boolean]
+  def agparseresult_get[A: Manifest](pr: Rep[AGParseResult[A]])     (implicit pos: SourceContext): Rep[A]
+  def agparseresult_next[A: Manifest](pr: Rep[AGParseResult[A]])    (implicit pos: SourceContext): Rep[Input]
+  def agparseresult_ans[A: Manifest](pr: Rep[AGParseResult[A]])     (implicit pos: SourceContext): Rep[Answer]
 
-  def parseresult_orElse[A: Manifest](pr: Rep[AGParseResult[A]], that: Rep[AGParseResult[A]])(implicit pos: SourceContext): Rep[AGParseResult[A]] =
+  def agparseresult_orElse[A: Manifest](pr: Rep[AGParseResult[A]], that: Rep[AGParseResult[A]])(implicit pos: SourceContext): Rep[AGParseResult[A]] =
     if (pr.isEmpty) that else pr
 
-  def parseresult_map[A: Manifest, B: Manifest](pr: Rep[AGParseResult[A]], f: Rep[A] => Rep[B])(implicit pos: SourceContext): Rep[AGParseResult[B]] =
+  def agparseresult_map[A: Manifest, B: Manifest](pr: Rep[AGParseResult[A]], f: Rep[A] => Rep[B])(implicit pos: SourceContext): Rep[AGParseResult[B]] =
     if (pr.isEmpty) AGFailure[B](pr.next) else AGSuccess(f(pr.get), pr.next, pr.ans)
 
 }
@@ -59,16 +59,16 @@ trait AGParseResultOps extends AGSig with Base with IfThenElse with BooleanOps {
 trait AGParseResultOpsExp extends AGParseResultOps with IfThenElseExp with BooleanOpsExp with StructOpsExpOpt with CastingOpsExp {
   self: ReaderOps =>
 
-  def parseresult_isEmpty[A: Manifest](pr: Rep[AGParseResult[A]])(implicit pos: SourceContext): Rep[Boolean] =
+  def agparseresult_isEmpty[A: Manifest](pr: Rep[AGParseResult[A]])(implicit pos: SourceContext): Rep[Boolean] =
     field[Boolean](pr, "empty")
 
-  def parseresult_get[A: Manifest](pr: Rep[AGParseResult[A]])(implicit pos: SourceContext): Rep[A] =
+  def agparseresult_get[A: Manifest](pr: Rep[AGParseResult[A]])(implicit pos: SourceContext): Rep[A] =
     field[A](pr, "res")
 
-  def parseresult_next[A: Manifest](pr: Rep[AGParseResult[A]])(implicit pos: SourceContext): Rep[Input] =
+  def agparseresult_next[A: Manifest](pr: Rep[AGParseResult[A]])(implicit pos: SourceContext): Rep[Input] =
     field[Input](pr, "next")
 
-  def parseresult_ans[A: Manifest](pr: Rep[AGParseResult[A]])(implicit pos: SourceContext): Rep[Answer] =
+  def agparseresult_ans[A: Manifest](pr: Rep[AGParseResult[A]])(implicit pos: SourceContext): Rep[Answer] =
     field[Answer](pr, "ans")
 
   def AGSuccess[T: Manifest](res: Rep[T], next: Rep[Input], ans: Rep[Answer]): Exp[AGParseResult[T]] =

@@ -16,12 +16,16 @@ trait AGSig {
   //def combine(a1:Answer, a2:Answer):Answer
 }
 //
-trait AGStagedParsers extends AGSig with AGParseResultOps with OptionOps with ReaderOps with MyTupleOps {
+trait AGStagedParsers extends CharParsers with AGSig with AGParseResultOps with OptionOps with ReaderOps with MyTupleOps  {
 
 //
 //  //T is independent from Answer but can be included as additional information in an Answer if needed
 //  // parser combinator methods arguments need to be call by name otherwise the stack will overflow
   abstract class AGParser[+T: Manifest] extends ((Rep[Answer], Rep[Input]) => Rep[AGParseResult[T]]) { //tuple of rep rather than rep of tuple
+
+//  def map[U: Manifest](f: Rep[T] => Rep[U]) = Parser[U] { input =>
+//    this(input) map f
+//  }
 
     def map[U: Manifest](f: Rep[T] => Rep[U]) = AGParser[U] {
       case (ans: Rep[Answer], input: Rep[Input]) =>
@@ -235,12 +239,12 @@ trait AGStagedParsers extends AGSig with AGParseResultOps with OptionOps with Re
 
   //help functions for Parsers trait
 //
-//  def lift[T](pars: => Parser[T]) = AGParser[T] {
-//    case (ans: Answer, input: Input) =>
-//      val stag = pars(input)
-//      if (stag.isEmpty) AGFailure("futti", stag.next)
-//        else AGSuccess[T](stag.get, stag.next, ans)
-//  }
+  def lift[T:Manifest](pars: => Parser[T]) = AGParser[T] {
+    case (ans: Rep[Answer], input: Rep[Input]) =>
+      val stag = pars(input)
+      if (parseresult_isEmpty(stag)) AGFailure(stag.next)
+        else AGSuccess[T](stag.get, stag.next, ans)
+  }
 //  //implicit def impLift(s:String) = lift(keyword(s))
 //  //implicit def impLift[T](p: Parser[T]) = lift(p)
 //
