@@ -1,7 +1,6 @@
-package agStaged
-
-import stagedparsec._
+import agStaged._
 import lms._
+import stagedparsec._
 
 trait StagedSig extends AGSig { //TODO: also Rep[]?
   def start(tag:String, a:Answer):Answer
@@ -27,7 +26,7 @@ trait CharParsersProg extends CharParsers {
   }
 }
 
-class CharParsersSuite extends FileDiffSuite { 
+class CharParsersSuite extends FileDiffSuite {
 
   val prefix = "test-out/"
 
