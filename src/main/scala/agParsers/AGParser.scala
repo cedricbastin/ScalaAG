@@ -324,12 +324,10 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
   def rep[T](pars: AGParser[T]):AGParser[List[T]] = AGParser[List[T]] {
     case (ans, input: Input) =>
-      println("in rep: "+ans)
       pars(ans, input) match {
-        case AGSuccess(result1, next1, ans1) =>
-          rep(pars)(ans, next1) match {
-            //pipe original Answer
-            case AGSuccess(result2, next2, ans2) => AGSuccess(result1 :: result2, next1, ans) //propagate old Answer
+        case AGSuccess(result1, next1, _) =>
+          rep(pars)(ans, next1) match { //pipe original Answer / DONT propagate new answer (for now we could easily introduce new rep combinators)
+            case AGSuccess(result2, next2, _) => AGSuccess(result1 :: result2, next2, ans) //propagate old Answer
             case fail => AGSuccess(result1 :: Nil, next1, ans)
           }
         case AGFailure(msg1, next1) => AGSuccess(Nil, next1, ans) //rep parser always suceeds
