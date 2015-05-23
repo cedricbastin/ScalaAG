@@ -85,7 +85,7 @@ trait HtmlAlgebra extends HtmlSig {
 class HtmlTest extends HtmlGrammar with HtmlAlgebra {
     def test(in:String) = {
       print(in+"=> ")
-      val tokens = new lexical.Scanner(in)
+      val tokens:lexical.Scanner = new lexical.Scanner(in)
       val initAns = Nil
       val parsed = Container(initAns, tokens)
       parsed match {

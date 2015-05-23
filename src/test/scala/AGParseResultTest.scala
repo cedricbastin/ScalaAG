@@ -26,6 +26,24 @@ trait CharParsersProg extends CharParsers {
   }
 }
 
+object Test extends App {
+  (new CharParsersProg
+    with CharParsersExp
+    with MyIfThenElseExpOpt //IfThenElseExpOpt
+    with StructOpsFatExpOptCommon
+    with MyScalaCompile {
+    self =>
+
+    val codegen = new ScalaGenCharParsers with ScalaGenFatStructOps with MyScalaGenIfThenElseFat {
+      val IR: self.type = self
+    }
+
+    //codegen.emitSource(acceptIf _, "acceptIf", new java.io.PrintWriter(System.out))
+    //codegen.reset
+
+  }).acceptIf("e") fsdjkvkjnkj
+}
+
 class CharParsersSuite extends FileDiffSuite {
 
   val prefix = "test-out/"
@@ -52,6 +70,7 @@ class CharParsersSuite extends FileDiffSuite {
 
         codegen.emitSource(acceptIf _, "acceptIf", new java.io.PrintWriter(System.out))
         codegen.reset
+
       }
       assertFileEqualsCheck(prefix + "char-parser")
     }

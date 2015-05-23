@@ -1,4 +1,4 @@
-package sltc
+package stlc
 
 /**
  * Created by cedricbastin on 26/04/15.

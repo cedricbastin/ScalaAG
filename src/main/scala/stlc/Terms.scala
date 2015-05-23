@@ -1,4 +1,4 @@
-package sltc
+package stlc
 
 import scala.util.parsing.input.Positional
 

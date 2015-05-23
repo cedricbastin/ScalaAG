@@ -1,4 +1,4 @@
-package sltc
+package stlc
 
 import scala.io.Source
 import scala.collection.immutable.HashMap

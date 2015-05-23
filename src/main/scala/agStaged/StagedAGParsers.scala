@@ -1,19 +1,16 @@
 package agStaged
-//
-//import scala.util.parsing.combinator.syntactical.StandardTokenParsers //because here we try to extend the staged parsers
+
 import scala.virtualization.lms.common._
-//
+
 ////local functadelic:
 import stagedparsec._ //for ReaderOps
 import lms._
 import lms.util._
 
-trait AGSig {
+trait AGSig extends Base {
   type Answer
   implicit val ansManifest: Manifest[Answer] //needed for lms interop
-  //type Answer = Manifest[_]
-  //type AnswerF = Answer => Answer //lazily computed environment
-  //def combine(a1:Answer, a2:Answer):Answer
+  def combine(a1:Rep[Answer], a2:Rep[Answer]):Rep[Answer]
 }
 //
 trait AGStagedParsers extends CharParsers with AGSig with AGParseResultOps with OptionOps with ReaderOps with MyTupleOps  {
