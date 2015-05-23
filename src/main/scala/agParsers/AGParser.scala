@@ -267,13 +267,10 @@ trait AGParsers extends StandardTokenParsers with AGSig {
      */
     def >>~>>[U](that: => AGParser[U]) = AGParser[~[T, U]] {
       case (ans, input: Input) =>
-        println("ans: "+ans+" input: "+ input)
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
-            println("ans1: "+ans1+" result1: "+result1)
             that(ans1, next1) match { //use new answer
               case AGSuccess(result2, next2, ans2) =>
-                println("ans2: "+ans2+" result2: "+result2)
                 AGSuccess(new ~(result1, result2), next2, ans2) //return answer from 2nd parser
               case AGFailure(msg2, next2) =>
                 AGFailure(msg2, next2)
