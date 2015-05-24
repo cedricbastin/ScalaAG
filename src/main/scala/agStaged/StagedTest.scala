@@ -2,21 +2,22 @@ package agStaged
 
 import lms._
 import stagedparsec._
+import scala.reflect.{ SourceContext, RefinedManifest }
 
 /**
 * Created by cedricbastin on 22/05/15.
 */
-//trait CharRepSig extends AGSig { //TODO: also Rep[]?
-//}
+trait CharRepSig extends AGSig { //TODO: also Rep[]?
+  type Answer = Char
+  implicit val ansManifest:Manifest[Answer] = manifest[Answer]//manifest[Char]//import scala.reflect.{ SourceContext, RefinedManifest }
+}
 //
 //trait CharRepOpsAlgebra extends CharRepSig {
 //  type Answer = Int //e.g. count as an example
 //  def combine(a1:Rep[Answer], a2:Rep[Answer]) = a1 + a2
 //}
 
-trait CharRepParsers extends AGCharParsers {
-  //type Answer = Char
-  //implicit val ansManifest:Manifest[Char] //import scala.reflect.{ SourceContext, RefinedManifest }
+trait CharRepParsers extends AGCharParsers with CharRepSig {
   def Pars: AGParser[Char] = {
     acceptIf(x => x == unit('h')) //map ( _ + 2) //test basic functionality
   }

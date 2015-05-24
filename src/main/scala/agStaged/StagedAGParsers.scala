@@ -8,8 +8,8 @@ import lms._
 import lms.util._
 
 trait AGSig extends Base {
-  type Answer = Char
-  implicit val ansManifest: Manifest[Answer] = implicitly[Manifest[Answer]]//manifest[Answer] //needed by lms
+  type Answer
+  implicit val ansManifest: Manifest[Answer] // = implicitly[Manifest[Answer]]//manifest[Answer] //needed by lms
   //def combine(a1:Rep[Answer], a2:Rep[Answer]):Rep[Answer] //TODO: put back
 }
 
