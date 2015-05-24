@@ -8,16 +8,16 @@ import lms._
 import lms.util._
 
 trait AGSig extends Base {
-  type Answer
-  implicit val ansManifest: Manifest[Answer] //needed for lms interop
-  def combine(a1:Rep[Answer], a2:Rep[Answer]):Rep[Answer]
+  type Answer = Char
+  implicit val ansManifest: Manifest[Answer] = implicitly[Manifest[Answer]]//manifest[Answer] //needed by lms
+  //def combine(a1:Rep[Answer], a2:Rep[Answer]):Rep[Answer] //TODO: put back
 }
-//
-trait AGStagedParsers extends CharParsers with AGSig with AGParseResultOps with OptionOps with ReaderOps with MyTupleOps  {
 
-//
-//  //T is independent from Answer but can be included as additional information in an Answer if needed
-//  // parser combinator methods arguments need to be call by name otherwise the stack will overflow
+trait AGStagedParsers extends AGParseResultOps with AGSig with OptionOps with ReaderOps with MyTupleOps  {
+
+
+  //T is independent from Answer but can be included as additional information in an Answer if needed
+  // parser combinator methods arguments need to be call by name otherwise the stack will overflow
   abstract class AGParser[+T: Manifest] extends ((Rep[Answer], Rep[Input]) => Rep[AGParseResult[T]]) { //tuple of rep rather than rep of tuple
 
 //  def map[U: Manifest](f: Rep[T] => Rep[U]) = Parser[U] { input =>
@@ -236,12 +236,13 @@ trait AGStagedParsers extends CharParsers with AGSig with AGParseResultOps with 
 
   //help functions for Parsers trait
 //
-  def lift[T:Manifest](pars: => Parser[T]) = AGParser[T] {
-    case (ans: Rep[Answer], input: Rep[Input]) =>
-      val stag = pars(input)
-      if (parseresult_isEmpty(stag)) AGFailure(stag.next)
-        else AGSuccess[T](stag.get, stag.next, ans)
-  }
+//TODO: lift can only be defined once a base parser exists!!
+//  def lift[T:Manifest](pars: => scala.util.parsing.combinator.Parser[T]) = AGParser[T] {
+//    case (ans: Rep[Answer], input: Rep[Input]) =>
+//      val stag = pars(input)
+//      if (parseresult_isEmpty(stag)) AGFailure(stag.next)
+//        else AGSuccess[T](stag.get, stag.next, ans)
+//  }
 //  //implicit def impLift(s:String) = lift(keyword(s))
 //  //implicit def impLift[T](p: Parser[T]) = lift(p)
 //
@@ -277,6 +278,12 @@ trait AGStagedParsers extends CharParsers with AGSig with AGParseResultOps with 
     def apply[V: Manifest](f: (Rep[Answer], Rep[Input]) => Rep[AGParseResult[V]]) = new AGParser[V] {
       def apply(ans: Rep[Answer], input: Rep[Input]) = f(ans, input)
     }
+
+    def phrase[T: Manifest](p: => AGParser[T], in: Rep[Input], ans:Rep[Answer]): Rep[Option[T]] = {
+      val presult = p(ans, in)
+      val res = if (presult.isEmpty) none[T]() else Some(presult.get)
+      res
+    }
   }
 }
 
@@ -290,7 +297,7 @@ trait AGStagedParsersExp
   with EqualExpOpt
 
 
-trait ScalaGenStagedParsers
+trait ScalaGenAGStagedParsers
   extends ScalaGenParseResultOps
   with ScalaGenOptionOps
   with ScalaGenMyTupleOps

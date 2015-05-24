@@ -16,53 +16,70 @@ rep => simply says “expect N-many repetitions of parser X” where X is the pa
 */
 
 trait HtmlSig extends AGSig {
-  def start(tag:String, a:Answer):Answer
+  def start(tag:String, ps:List[Property], a:Answer):Answer
   def end(tag:String, a:Answer):(Boolean, Answer)
   def validate(tag:String, a:Answer):Boolean
   //def add(tag:String, a:Answer):Answer
 }
 
-case class HtmlContainer(tag:String, content:List[HtmlContainer]) {
+trait HtmlBody {
+  def print
+}
+case class Container(tag:String, properties:List[Property], body:Body) extends HtmlBody {
   def print:Unit = {
-    println("<" + tag + ">\r\n")
-    content.foreach{_.print}
-    println("\r\n<\\" + tag + ">\r\n")
+    println("<" + tag +properties.foldLeft("")(_+_)+ ">\r\n")
+    body.print
+    println(" \r\n<\\" + tag + ">\r\n")
   }
+}
+case class Content(s:String) extends HtmlBody {
+  def print:Unit = println(s)
+}
+case class Body(ls:List[HtmlBody]) {
+  def print = ls.foreach(_.print)
+}
+
+case class Property(key:String, value:String) {
+  override def toString = key+"=\""+value+"\""
 }
 
 trait HtmlGrammar extends AGParsers with HtmlSig {
-  lexical.delimiters ++= List("<", ">", "\\")
+  lexical.delimiters ++= List("<", ">", "\\", """"""", "=")
   //lexical.reserved ++= List("Bool", "Nat", "true", "false", "if", "then", "else", "succ", "pred", "iszero", "let", "in")
 
-  def Start: AGParser[String] = {
-    //(f: T => U, add:(Answer, U) => Answer)
-    lift(keyword("<")) ~> lift(ident) <~ lift(keyword(">")) >>^^>> {
-      case (tag:String, a:Answer) => (start(tag, a), tag)
+  def PropertyP: AGParser[Property] = {
+    lift(ident) ~ lift("=")  ~ lift(ident) ^^ { //~ lift(""""""")
+      case name ~ eq ~ value =>
+        println("property")
+        Property(name, value)
     }
+  }
+
+  def Start: AGParser[(String, List[Property])] = {
+    //(f: T => U, add:(Answer, U) => Answer)
+    lift(keyword("<")) ~> lift(ident) ~ rep(PropertyP) <~ lift(keyword(">")) >>^^>> {
+      case (tag ~ ps, a:Answer) => (start(tag, ps, a), (tag, ps))
+    }
+  }
+
+  def BodyP:AGParser[Body] = {
+    lift(ident) ^^ { case s => Body(Content(s) :: Nil)} |
+      rep(ContainerP) ^^ { case ls => Body(ls)}
   }
 
   def End: AGParser[String] = {
     (lift("<") ~> lift("\\") ~> lift(ident) <~ lift(">") validate {
       case (s, ans) => validate(s, ans)
     }) >>^^>> {
-      case (tag:String, ans:Answer) =>
+      case (tag, ans) =>
         val res = end(tag, ans)
-//        if (!res._1)
-//          null
-//        else
-          (res._2, tag)
+        (res._2, tag)
     }
   }
 
-//  def Container2: AGParser[HtmlContainer] = {
-//    Container ~ Container ^^ { //there should always be a big outer container: e.g. body
-//      case c1 ~ c2 => HtmlContainer("hello", c1 :: c2 :: Nil)
-//    } | lift(failure("illegal start of container"))
-//  }
-
-  def Container: AGParser[HtmlContainer] = {
-    Start >>~>> rep(Container) >>~>> End ^^ { //validate { case start ~ cont ~ end => start == end } //TODO: validation parser is not really
-      case start ~ cont ~ end => HtmlContainer(start, cont)
+  def ContainerP: AGParser[Container] = {
+    Start >>~>> BodyP >>~>> End ^^ { //validate { case start ~ cont ~ end => start == end } //TODO: validation parser is not really
+      case start ~ body ~ end => Container(start._1, start._2, body)
     } | lift(failure("illegal start of container"))
   }
 }
@@ -70,7 +87,7 @@ trait HtmlGrammar extends AGParsers with HtmlSig {
 trait HtmlAlgebra extends HtmlSig {
   type Answer = List[String] //stack where we push and pop the head
 
-  def start(tag:String, a:Answer) = tag :: a //return answer??
+  def start(tag:String, ps:List[Property], a:Answer) = tag :: a //return answer??
   def end(tag:String, a:Answer) = a match {
       case x :: xs if x == tag => (true, xs)
       case _ => (false, a)
@@ -87,7 +104,7 @@ class HtmlTest extends HtmlGrammar with HtmlAlgebra {
       print(in+"=> ")
       val tokens:lexical.Scanner = new lexical.Scanner(in)
       val initAns = Nil
-      val parsed = Container(initAns, tokens)
+      val parsed = ContainerP(initAns, tokens)
       parsed match {
         case AGSuccess(res, next, ans) =>
           println(res)
@@ -96,14 +113,14 @@ class HtmlTest extends HtmlGrammar with HtmlAlgebra {
       }
     }
     def testAll() = {
-      test("<test><\\test>")
-      test("<test><\\testx>")
+      test("<test><\\testX>")
+      test("""<test property =  value ><\\test>""")
       test("<test><h1><\\h2><\\test>")
       test("<test><c1><\\c1><\\test>")
       test("<test><c1><\\c1><c1><\\c1><c1><\\c1><\\test>")
       test("<test><\\test><c1><\\c1>")
       test("<test><c1><c2><\\c2><\\c1><\\test>")
-      test("<test><c1><\\c1><c2><\\c2><\\test>")
+      test("<test jojo=\"haha\"><c1><\\c1><c2><\\c2><\\test>")
       test("<test><c1><\\c1><c2><\\c3><\\test>")
     }
 }

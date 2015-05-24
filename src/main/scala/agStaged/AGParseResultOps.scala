@@ -39,7 +39,7 @@ trait AGParseResultOps extends AGSig with Base with IfThenElse with BooleanOps {
       agparseresult_ans(pr)
 
     def map[B: Manifest](f: Rep[A] => Rep[B]) = agparseresult_map(pr, f)
-    //other fucntions
+    //TODO: other functions
   }
 
   def agparseresult_isEmpty[A: Manifest](pr: Rep[AGParseResult[A]]) (implicit pos: SourceContext): Rep[Boolean]
