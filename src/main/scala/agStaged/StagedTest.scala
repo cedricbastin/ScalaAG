@@ -8,8 +8,9 @@ import scala.reflect.{ SourceContext, RefinedManifest }
 * Created by cedricbastin on 22/05/15.
 */
 trait CharRepSig extends AGSig { //TODO: also Rep[]?
-  type Answer = Char
-  implicit val ansManifest:Manifest[Answer] = manifest[Answer]//manifest[Char]//import scala.reflect.{ SourceContext, RefinedManifest }
+  type Answer = Int
+  implicit val ansManifest:Manifest[Answer] = scala.reflect.ManifestFactory.classType[Answer](classOf[Answer])
+  //= manifest[Answer] //manifest[Char]//import scala.reflect.{ SourceContext, RefinedManifest }
 }
 //
 //trait CharRepOpsAlgebra extends CharRepSig {
@@ -18,8 +19,8 @@ trait CharRepSig extends AGSig { //TODO: also Rep[]?
 //}
 
 trait CharRepParsers extends AGCharParsers with CharRepSig {
-  def Pars: AGParser[Char] = {
-    acceptIf(x => x == unit('h')) //map ( _ + 2) //test basic functionality
+  def Pars: AGParser[Int] = {
+    acceptIf(x => unit(true)) map {case c => unit(c.toString.toInt)}//x == unit('h')) //map ( _ + 2) //test basic functionality
   }
 }
 
