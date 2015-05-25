@@ -9,7 +9,7 @@ import scala.reflect.{ SourceContext, RefinedManifest }
 */
 trait CharRepSig extends AGSig { //TODO: also Rep[]?
   type Answer = Int
-  implicit val ansManifest:Manifest[Answer] = scala.reflect.ManifestFactory.classType[Answer](classOf[Answer])
+  val ansManifest:Manifest[Answer] = manifest[Answer]//scala.reflect.ManifestFactory.classType[Answer](classOf[Answer])
   //= manifest[Answer] //manifest[Char]//import scala.reflect.{ SourceContext, RefinedManifest }
 }
 //
@@ -42,6 +42,7 @@ trait CharRepParsersProg extends CharRepParsers {
 
 
 object StagedTest extends App {
+
   (new CharRepParsersProg //StagedParsersProg
     with CharRepParsersExp
     with MyIfThenElseExpOpt //IfThenElseExpOpt
@@ -56,7 +57,7 @@ object StagedTest extends App {
     //codegen.emitSource(acceptIf _, "acceptIf", new java.io.PrintWriter(System.out))
     //codegen.reset
     val testcAcceptIf = compile(acceptIf)
-    scala.Console.println(testcAcceptIf("hello".toArray))
+    scala.Console.println(testcAcceptIf("hhhllo".toArray))
     scala.Console.println(testcAcceptIf("ello".toArray))
     codegen.reset
 
