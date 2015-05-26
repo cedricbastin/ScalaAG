@@ -23,8 +23,8 @@ trait CharRepSig extends AGSig { //TODO: also Rep[]?
 //}
 
 trait CharRepParsers extends AGCharParsers with CharRepSig {
-  def Pars: AGParser[Char] = {
-    acceptIf(x => x == unit('h')) //map ( _ + 2) //test basic functionality
+  def Pars: AGParser[Int] = {
+    acceptIf(x => x == unit('h')) map {case c => unit(c.toString.toInt)} //test basic functionality
   }
 }
 
@@ -38,7 +38,13 @@ trait CharRepParsersProg extends CharRepParsers {
   import AGParser._ //for phrase
 
   def acceptChar(in: Rep[Array[Char]]): Rep[Option[Char]] = {
-    val parser = super.acceptIf(x => x == unit('h'))
+    val parser = acceptIf(x => x == unit('h'))
+    val defAns: Rep[Answer] = unit('h')
+    phrase(parser, StringReader(in), defAns)
+  }
+
+  def mapTest(in: Rep[Array[Char]]): Rep[Option[Char]] = {
+    val parser:AGParser[Char] = acceptIf(x => x == unit('h')) map { c => c}
     val defAns: Rep[Answer] = unit('h')
     phrase(parser, StringReader(in), defAns)
   }
@@ -60,10 +66,14 @@ object StagedTest extends App {
 
     codegen.emitSource(acceptChar _, "acceptChar", new java.io.PrintWriter(System.out))
     codegen.reset
+    codegen.emitSource(mapTest _, "mapTest", new java.io.PrintWriter(System.out))
+    codegen.reset
 
     val testcAcceptIf = compile(acceptChar)
-    scala.Console.println(testcAcceptIf("hello".toArray))
-    scala.Console.println(testcAcceptIf("ello".toArray))
+    val mapptest = compile(mapTest)
+
+    scala.Console.println(testcAcceptIf("abc".toArray))
+    scala.Console.println(mapptest("def".toArray))
     codegen.reset
 
   })

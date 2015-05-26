@@ -279,6 +279,8 @@ trait AGStagedParsers extends AGParseResultOps with AGSig with OptionOps with Re
       def apply(ans: Rep[Answer], input: Rep[Input]) = f(ans, input)
     }
 
+
+    //what does this do?
     def phrase[T: Manifest](p: => AGParser[T], in: Rep[Input], ans:Rep[Answer]): Rep[Option[T]] = {
       val presult = p(ans, in)
       val res = if (presult.isEmpty) none[T]() else Some(presult.get)
