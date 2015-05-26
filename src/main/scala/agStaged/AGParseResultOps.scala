@@ -56,7 +56,7 @@ trait AGParseResultOps extends AGSig with Base with IfThenElse with BooleanOps {
 }
 
 //concrete Exp world
-trait AGParseResultOpsExp extends AGParseResultOps with IfThenElseExp with BooleanOpsExp with StructOpsExpOpt with CastingOpsExp {
+trait AGParseResultOpsExp extends AGParseResultOps with IfThenElseExp with BooleanOpsExp with StructExpOpt with CastingOpsExp {
   self: ReaderOps =>
 
   def agparseresult_isEmpty[A: Manifest](pr: Rep[AGParseResult[A]])(implicit pos: SourceContext): Rep[Boolean] =
@@ -90,7 +90,7 @@ trait AGParseResultOpsExp extends AGParseResultOps with IfThenElseExp with Boole
     )
 }
 
-trait AGParseResultGenBase extends GenericCodegen with BaseGenStructOps {
+trait AGParseResultGenBase extends GenericCodegen with BaseGenStruct {
   val IR: AGParseResultOpsExp
 
   override def remap[A](m: Manifest[A]) = m.erasure.getSimpleName match {
@@ -102,7 +102,7 @@ trait AGParseResultGenBase extends GenericCodegen with BaseGenStructOps {
 trait ScalaGenParseResultOps
   extends ScalaGenBase
   with AGParseResultGenBase
-  with ScalaGenStructOps
+  with ScalaGenStruct
   with ScalaGenIfThenElse
   with ScalaGenBooleanOps {
   val IR: AGParseResultOpsExp
