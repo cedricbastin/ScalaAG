@@ -1,16 +1,20 @@
 package agStaged
 
-import lms._
+import scala.virtualization.lms.common._
 import stagedparsec._
 import scala.reflect.{ SourceContext, RefinedManifest }
+import lms._
 
 /**
 * Created by cedricbastin on 22/05/15.
 */
 trait CharRepSig extends AGSig { //TODO: also Rep[]?
-  type Answer = Int
-  val ansManifest:Manifest[Answer] = manifest[Answer]//scala.reflect.ManifestFactory.classType[Answer](classOf[Answer])
-  //= manifest[Answer] //manifest[Char]//import scala.reflect.{ SourceContext, RefinedManifest }
+
+  type Answer = Char
+
+  //A bit of a hack: manifest[StringReader] causes a nullPointerException
+  //possibly due to a bug in Scala
+  val ansManifest = manifest[Char]
 }
 //
 //trait CharRepOpsAlgebra extends CharRepSig {
@@ -19,8 +23,8 @@ trait CharRepSig extends AGSig { //TODO: also Rep[]?
 //}
 
 trait CharRepParsers extends AGCharParsers with CharRepSig {
-  def Pars: AGParser[Int] = {
-    acceptIf(x => unit(true)) map {case c => unit(c.toString.toInt)}//x == unit('h')) //map ( _ + 2) //test basic functionality
+  def Pars: AGParser[Char] = {
+    acceptIf(x => x == unit('h')) //map ( _ + 2) //test basic functionality
   }
 }
 
@@ -33,9 +37,9 @@ trait GenCharRepParsers extends ScalaGenAGCharParsers {
 trait CharRepParsersProg extends CharRepParsers {
   import AGParser._ //for phrase
 
-  def acceptIf(in: Rep[Array[Char]]): Rep[Option[Char]] = {
+  def acceptChar(in: Rep[Array[Char]]): Rep[Option[Char]] = {
     val parser = super.acceptIf(x => x == unit('h'))
-    val defAns:Rep[Answer] = unit('h')
+    val defAns: Rep[Answer] = unit('h')
     phrase(parser, StringReader(in), defAns)
   }
 }
@@ -46,18 +50,19 @@ object StagedTest extends App {
   (new CharRepParsersProg //StagedParsersProg
     with CharRepParsersExp
     with MyIfThenElseExpOpt //IfThenElseExpOpt
-    with StructOpsFatExpOptCommon
+    with StructFatExpOptCommon
     with MyScalaCompile {
     self =>
 
-    val codegen = new GenCharRepParsers with ScalaGenFatStructOps with MyScalaGenIfThenElseFat {
+    val codegen = new GenCharRepParsers with ScalaGenFatStruct with MyScalaGenIfThenElseFat {
       val IR: self.type = self
     }
 
-    //codegen.emitSource(acceptIf _, "acceptIf", new java.io.PrintWriter(System.out))
-    //codegen.reset
-    val testcAcceptIf = compile(acceptIf)
-    scala.Console.println(testcAcceptIf("hhhllo".toArray))
+    codegen.emitSource(acceptChar _, "acceptChar", new java.io.PrintWriter(System.out))
+    codegen.reset
+
+    val testcAcceptIf = compile(acceptChar)
+    scala.Console.println(testcAcceptIf("hello".toArray))
     scala.Console.println(testcAcceptIf("ello".toArray))
     codegen.reset
 
@@ -71,7 +76,7 @@ object StagedTest extends App {
 //  def testCharParsers = {
 //    withOutFile(prefix + "char-parser") {
 //      /**
-//       * Attention: Need to mix in Fat versions of StructOps as well as IfthenElse
+//       * Attention: Need to mix in Fat versions of Struct as well as IfthenElse
 //       * for optimisations on FatIfs and so on.
 //       * Note: We are also using our own version of IfThenElseGenFat
 //       * to generate variables instead of tuples and boundary ends
@@ -80,11 +85,11 @@ object StagedTest extends App {
 //      new StagedParsersProg
 //        with CharParsersExp
 //        with MyIfThenElseExpOpt //IfThenElseExpOpt
-//        with StructOpsFatExpOptCommon
+//        with StructFatExpOptCommon
 //        with MyScalaCompile {
 //        self =>
 //
-//        val codegen = new ScalaGenCharParsers with ScalaGenFatStructOps with MyScalaGenIfThenElseFat {
+//        val codegen = new ScalaGenCharParsers with ScalaGenFatStruct with MyScalaGenIfThenElseFat {
 //          val IR: self.type = self
 //        }
 //

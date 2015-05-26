@@ -30,11 +30,11 @@ object Test extends App {
   (new CharParsersProg
     with CharParsersExp
     with MyIfThenElseExpOpt //IfThenElseExpOpt
-    with StructOpsFatExpOptCommon
+    with StructFatExpOptCommon
     with MyScalaCompile {
     self =>
 
-    val codegen = new ScalaGenCharParsers with ScalaGenFatStructOps with MyScalaGenIfThenElseFat {
+    val codegen = new ScalaGenCharParsers with ScalaGenFatStruct with MyScalaGenIfThenElseFat {
       val IR: self.type = self
     }
 
@@ -51,7 +51,7 @@ class CharParsersSuite extends FileDiffSuite {
   def testCharParsers = {
     withOutFile(prefix + "char-parser") {
       /**
-       * Attention: Need to mix in Fat versions of StructOps as well as IfthenElse
+       * Attention: Need to mix in Fat versions of Struct as well as IfthenElse
        * for optimisations on FatIfs and so on.
        * Note: We are also using our own version of IfThenElseGenFat
        * to generate variables instead of tuples and boundary ends
@@ -60,11 +60,11 @@ class CharParsersSuite extends FileDiffSuite {
       new CharParsersProg
         with CharParsersExp
         with MyIfThenElseExpOpt //IfThenElseExpOpt
-        with StructOpsFatExpOptCommon
+        with StructFatExpOptCommon
         with MyScalaCompile {
         self =>
 
-        val codegen = new ScalaGenCharParsers with ScalaGenFatStructOps with MyScalaGenIfThenElseFat {
+        val codegen = new ScalaGenCharParsers with ScalaGenFatStruct with MyScalaGenIfThenElseFat {
           val IR: self.type = self
         }
 
@@ -95,7 +95,7 @@ class CharParsersSuite extends FileDiffSuite {
 //    with CharParsersExp {
 //    self =>
 //
-//    val codegen = new ScalaGenCharParsers with ScalaGenFatStructOps with MyScalaGenIfThenElseFat {
+//    val codegen = new ScalaGenCharParsers with ScalaGenFatStruct with MyScalaGenIfThenElseFat {
 //      val IR: self.type = self
 //    }
 //  }
