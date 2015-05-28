@@ -25,12 +25,12 @@ trait AGStagedParsers extends AGParseResultOps with AGSig with OptionOps with Re
 //  }
 
     def map[U: Manifest](f: Rep[T] => Rep[U]) = AGParser[U] {
-      case (ans: Rep[Answer], input: Rep[Input]) =>
+      (ans: Rep[Answer], input: Rep[Input]) =>
         val tmp = this(ans, input)
         if (tmp.isEmpty)
-          AGSuccess(f(tmp.get), tmp.next, ans)
+          AGFailure[U](tmp.next)
         else
-          AGFailure(tmp.next)
+          AGSuccess(f(tmp.get), tmp.next, ans)
     }
 //
 ////    def ^^[U](f: Rep[T] => Rep[U]) = map(f)

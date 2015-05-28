@@ -39,13 +39,13 @@ trait CharRepParsersProg extends CharRepParsers {
 
   def acceptChar(in: Rep[Array[Char]]): Rep[Option[Char]] = {
     val parser = acceptIf(x => x == unit('h'))
-    val defAns: Rep[Answer] = unit('h')
+    val defAns: Rep[Answer] = unit('a')
     phrase(parser, StringReader(in), defAns)
   }
 
   def mapTest(in: Rep[Array[Char]]): Rep[Option[Char]] = {
-    val parser:AGParser[Char] = acceptIf(x => x == unit('h')) map { c => c}
-    val defAns: Rep[Answer] = unit('h')
+    val parser:AGParser[Char] = acceptIf(x => unit(true)) map { c => c}
+    val defAns: Rep[Answer] = unit('a')
     phrase(parser, StringReader(in), defAns)
   }
 }
@@ -64,15 +64,15 @@ object StagedTest extends App {
       val IR: self.type = self
     }
 
-    codegen.emitSource(acceptChar _, "acceptChar", new java.io.PrintWriter(System.out))
-    codegen.reset
+//    codegen.emitSource(acceptChar _, "acceptChar", new java.io.PrintWriter(System.out))
+//    codegen.reset
     codegen.emitSource(mapTest _, "mapTest", new java.io.PrintWriter(System.out))
     codegen.reset
 
     val testcAcceptIf = compile(acceptChar)
     val mapptest = compile(mapTest)
 
-    scala.Console.println(testcAcceptIf("abc".toArray))
+//    scala.Console.println(testcAcceptIf("habc".toArray))
     scala.Console.println(mapptest("def".toArray))
     codegen.reset
 
