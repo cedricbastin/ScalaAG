@@ -50,6 +50,26 @@ Furthermore as the syntactic definition of a formal grammar might be more permis
 
 As the attributes are an abstract way of decorating the abstract syntax tree one can easily decouple the attribute rules from the grammar such that different attribute grammar can be used over the same formal grammar providing different computations over a parse tree without the need to rewrite the grammar.
 
+###Monad (state and reader)
+
+###Monad transformer?
+"It would be ideal if we could somehow take the standard State monad and add failure handling to it, without resorting to the wholesale construction of custom monads by hand. "
+"A monad transformer is similar to a regular monad, but it’s not a standalone entity: instead, it modifies the behaviour of an underlying monad."
+"Monad transformers can be used to compose features encapsulated by monads "
+
+
+###Monadic Parsing?
+"scala implementation "almost monadic""
+"In practice, however, using seq leads to parsers with nested
+tuples as results, which are messy to manipulate.
+The problem of nested tuples can be avoided by adopting a monadic sequencing
+combinator (commonly known as bind) which integrates the sequencing of parsers
+with the processing of their result values:"
+
+"internal DSLs are limited by the syntax of the host language (constraint by features of programming language)"
+"external DSLs are only limited by the parser"
+monad transformers allow to stack monads
+
 ###CFG vs CSG
 
 
@@ -59,6 +79,7 @@ The Scala Parser combinators is a library for compositional parsing
 Since Scala 2.11 they have been factored out of the scala langauge into a separate library which can be used in your projects by including them with sbt:
 `libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"`
 There are a set of combinator which can be used to create compoed parser such as the sequencial composition combinator `parserA ~ parserB` which will return a ParseResult of both `parserA` and `parserB` concatenated (in a ~(a:A, b:B) object).
+
 
 ####flatMap and context sensitive parsing
 One importatn parser combinator is the `flatMap` combinator, also called `into` or `>>`:
@@ -102,8 +123,15 @@ Html (Collector)
 
 
 ###related work
-Kiama (AG) (Jonas: object algebra to attribute grammar)
-TQL
+(Jonas: object algebra to attribute grammar)
+####Kiama
+*Kiama is a Scala library for language processing which allows analysis and transformation on structured data using formal languages processing paradigms such as attribute grammars and tree rewriting.*
+Through the use of Scala macros, Kiama augments existing tree structures with named or unnamed attribute function which can then be used to evaluate local or global properties.
+`def attr[T,U] (f : T => U) : CachedAttribute[T,U] = macro AttributionCoreMacros.attrMacro[T,U,CachedAttribute[T,U]]`
+This makes the relation between the parents and child nodes in a tree explicit and thus allows the different attribute method to access each other. We wanted to avoid constructing an additional structure on top of the tree structure and actually completely dismiss the original parse tree if it is not needed for afterwards. With the AGParser it is possible to create parent-child and child-parents calls however do they need to be explicit.
+Kiama is also able to treat more general graphs and 
+
+####TQL
 haskell paper
 Monad paper (Reader, Env)
 
@@ -113,4 +141,8 @@ Monad paper (Reader, Env)
 
 ###references:
 attribute grammars: 1967 Semantics of context-free languages, by Don Knuth, 
-parser combinators: https://github.com/scala/scala-parser-combinators
+combinator parsing (Wadler, 1985; Hutton, 1992; Fokker, 1995),
+Monadic Parser Combinator, Hutton+Meijer 1996, https://www.cs.nott.ac.uk/~gmh/monparsing.pdf 
+scala parser combinators: https://github.com/scala/scala-parser-combinators
+Kiama: https://code.google.com/p/kiama/
+
