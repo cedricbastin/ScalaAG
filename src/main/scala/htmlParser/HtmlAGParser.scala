@@ -87,7 +87,6 @@ trait HtmlGrammar extends AGParsers with HtmlSig {
 trait HtmlAlgebra extends HtmlSig {
   type Answer = List[String] //stack where we push and pop the head
 
-
   def start(tag:String, ps:List[Property], a:Answer) = tag :: a //return answer??
   def end(tag:String, a:Answer) = a match {
       case x :: xs if x == tag => (true, xs)

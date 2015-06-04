@@ -69,7 +69,7 @@ class RepMinTest extends RepMinGrammar with RepMinAlgebra {
     test("x")
     test("( x 4 x )")
     test("( ( x 3 x ) 4 x )")
-    test("( ( ( x 4 x ) 5 ( x 1 x ) ) 4 ( x 2 x ) )")
+    test("( ( ( x 4 x ) 5 ( x 4 x ) ) 4 ( x 2 x ) )")
   }
 }
 

@@ -1,0 +1,84 @@
+\section{Design \& Interface}
+The implementation is based on top of the parser combinator library such that basic combinators can be reused and more advanced features such as token parsing do not need to be fully re-implemented. In our implementation we have augmented the parser combinators to include an environment which contains the attributes and can thus be read and augmented during the application of semantic functions.
+
+\subsection{AGSig}
+AGSignature describes the very general aspect of an abstract algebra, namely the abstract data type used to pass information between semantic functions. Also some general methods for specific Answer manipulations such as combination ca be defined here. As the framework was meant to be very generic we reduced the amount of those functions to the simple case of combination of 2 different Answers. Of course this abstract definition should be refined for each use case such that the 
+\begin{lstlisting}
+trait AGSig {
+  type Answer
+  def combine(a1:Answer, a2:Answer):Answer
+}
+\end{lstlisting}
+
+When the framework is used we suggest to decouple semantic functions from the parsing grammar. This can be useful when a different set of attributes need to be used for different applications and we want to avoid copy-pasting the code of the grammar itself. 
+
+\subsection{AGAlgebra}
+\begin{lstlisting}
+trait MyAlgebra extends AGSig {
+  type Answer = List[String] //e.g. environment
+
+  def start(tag:String, ps:List[Property], a:Answer):Answer = tag :: a
+\end{lstlisting}
+
+\subsection{AGGrammar}
+\begin{lstlisting}
+trait HtmlGrammar extends AGParsers with HtmlSig {
+  lexical.delimiters ++= List("<", ">", "\\", """"""", "=")
+
+  def Start: AGParser[(String, List[Property])] = {
+    //(f: T => U, add:(Answer, U) => Answer)
+    lift(keyword("<")) ~> lift(ident) ~ rep(PropertyP) <~ lift(keyword(">")) >>^^>> {
+      case (tag ~ ps, a:Answer) => (start(tag, ps, a), (tag, ps))
+    }
+  }
+\end{lstlisting}
+
+As you can see the grammar immediately forwards the evaluation of the attributes to semantic functions of the algebra. 
+
+\subsection{issues}
+As the input for a parser is generally a linear structure we need to pipe the collected attributes collected in the *Answer* environment to the correct parser combinators. For instance when constructing an environment of all the parent nodes we want to make sure that the child nodes do not share the environment other than what comes from their common parent.
+
+\begin{lstlisting}
+def Leaf:AGParser = ValueParser
+def Node:AGParser = Node ~ ValueParser ~ Node
+\end{lstlisting}
+
+We cannot simply propagate the environment from left to right as the collected values of the left hand side are not parents of the right hand side (we don't know actually). Thus we needed to a way to let the programmer express details about the structure being parsed and allow him to specify which and how the parser interrelate.
+
+With the use of semantic functions in a parser one can easily see that the added value over syntactic information also requires for more in depth validation techniques as more structural information is available and this extended validation can take place.
+
+\subsection{Implementation}
+Due to the added environment for attribute results which needs to be passed around between parser combinators and possibly used or augmented, the standard combinators need to be adapted for this use. The changes mostly influence the *sequence* and *map* combinators.
+We decided to use the double arrow notation *>>* to express whenever the environment is passed on between consecutive parsers and how the semantic functions applied in each step influence this Answer environment. 
+
+\subsection{sequencing: ~ / \>>~ / ~>> / \>>~>>}
+As explained above the inputed of a parser if often unstructured and linear and thus requires the programmer to encode the hierarchy and scope of a specific combinator manually. 
+For instance the sequencing combinator can be used to combine 2 smaller parser, however each of those parser might potentially change the answer environment.
+The given notation is not to be confused with the `~>` *drop-right* combinator!
+For instance the "flow" of the Answer object of the operator `parserA >>~>> parserB` can be symbolized by `parserA >> parserB >> ...` which means that the potentially updated environment flows both between the 2 parsers and it is also passed on to whatever follow then. On the contrary `parserA ~>> parserB` means that only the answer from the second parser will be used in consecutive parsers
+The full interaction can be expressed in a graph for and easy to understand illustration of how the different *answer piping* interrelate.
+<img src="ans_piping.png" width="500px" style="display: block;margin-left: auto;margin-right: auto;"\>
+Some confusion might occur due to the left associativity of parser combinators which makes some grouping implicit and tough to see which environment is actually piped where.
+The programmer might need to use parentheses in order to keep the environment in the correct scope and make his attempt more clear.
+
+
+\subsection{mapping: \begin{lstlisting}^^ / \>>^^ / ^^>> / \>>^^>>\end{lstlisting}}
+Whenever a mapping function is applied on the result of a parser this functionality might influence the attribute environment which thus needs updating. On the other hand some semantic functions applied to a parse result might also need to access the attribute environment in order to apply a specific functionality. We used the same notation to express the different between mapping function which need to access the environment in order to apply the semantic function and the ones that augment the existing environment with new attribute values.
+The function signatures look as follows:
+
+\begin{lstlisting}
+def ^^[U](f: T => U) = map(f)
+def >>^^[U](f: (T, Answer) => U) = mapWithAns(f)
+def ^^>>[U](f: T => U, add:(Answer, U) => Answer) = mapIntoAns(f, add)
+def >>^^>>[U](f: (T, Answer) => (Answer, U)) = mapWithAnsIntoAns(f)
+\end{lstlisting}
+
+\subsection{ParseResult}
+Obviously the attributes included the *Answer* need to be captured somewhere such that they can be passed around implicitly whenever they are not used. This is achieved by including the Answer inside the ResultType itself such that it can either be accessed or untouched depending on which attributes and evaluation it need to during the parsing.
+
+\begin{lstlisting}
+  case class AGSuccess[+T](result: T, next: Input, ans: Answer) extends AGParseResult[T]
+  case class AGFailure(msg: String, next: Input) extends AGParseResult[Nothing]
+\end{lstlisting}
+
+This allows us to have monad-like structure and semantics such that the content of Answer can potentially change a Success to a Failure only depending on semantic features.

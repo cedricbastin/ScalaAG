@@ -1,0 +1,81 @@
+\section{Introduction \& motivation}
+Parsing is still an interesting topic as programming languages evolve and some compiler developers might still be dreaming about a **one-pass compiler** or at least to apply several manipulating steps at once. Those steps require more knowledge about the tree structure in general which can be acquired by defining several recursive functions over the parse tree which pass around the additional information needed. Another method to achieve this is to use attribute grammar to augment the existing nodes in the tree with the needed information which can then be accessed several times.
+Parser combinators have shown that it is possible to have an compostable and easy to use parsing framework which allows to quickly create parser for an input of your choice. without the need to write complicated parsers by hand nor to use parser generating tools. We wanted to achieve the same ease of use by providing a parsing framework with more functionality such that more manipulating steps can already be calculated during the parsing.
+
+On the other hand nowadays parsing is used the most frequently in combination with information coming from the web such as html or xml where only part of the information is potentially useful which in the past could only be abstracted after constructing the full parse tree. 
+
+TODO:begin
+motivation => problem (efficiently)
+<!--dynamic programming-->
+traversals, transformers and collectors
+
+problem: 
+transformers, traversers
+context sensitive parsing
+avoid multiple passes
+
+Even though attributes grammar have been around for almost as long as functional programming they never really gained popularity. We wanted to revisit the related techniques to provide a more 
+The *credit-card transformation* helped to avoid multiple passes over a tree by tupling results and making then evaluated lazily.
+
+Scala Combinator have been discovered and used in a variety of programming languages to facilitate the task of the parser writer.
+
+During the development of the project we considered various implementations of such a framework. Once of which was based on TQL, developed by Eric Beguet, however did we find the use of Monoid a limiting factors as they don't help to see the full hierarchy of the tree and treats all the nodes in the same fashion.
+We will also cover related work where some research has been done 
+
+TODO:end
+
+\subsection{Attribute Grammars}
+Attribute grammars were introduced by Donald Knuth in 1967. They formalize the a set of attributes over a formal grammar such that each production rule can have one or more attributes associated to it. Thus an attribute grammar is defined over the nodes of an abstract syntax tree such that they can be transformed into a corresponding value. Most those attributes are not simple local transformations but need extended knowledge of a larger subset of the parse tree.
+
+Such attributes could be defined as follows:
+```
+Expr1 -> Expr2 + Term    [ Expr1.value = Expr2.value + Term.value ]
+Expr -> Term             [ Expr.value = Term.value ]
+Term1 -> Term2 * Factor  [ Term1.value = Term2.value * Factor.value ]
+Term -> Factor           [ Term.value = Factor.value ]
+Factor -> "(" Expr ")"   [ Factor.value =  Expr.value ]
+Factor -> integer        [ Factor.value = strToInt(integer.str) ]
+```
+There are 2 different kinds of attributes, the synthesized and inherited attributes. As the name suggest the inherited attributes are used to pass semantic information to the child branches of a node and synthesized attributes are used to pass semantic information up in the parse tree. As parsers are generally construction a tree structure from a linear input they have to work left-to-right fashion and thus some of the needed information might potentially be unavailable at the time of the parsing of a node. Lazy evaluation in functional programming can be used to overcome these restrictions as long as no cyclic dependencies between then attribute dependencies occur.
+
+Furthermore as the syntactic definition of a formal grammar might be more permissive than the actual language it is related to, thus an attribute grammar could be used to validate the parsed content and provide an additional wrapping mechanism for parse results. 
+
+As the attributes are an abstract way of decorating the abstract syntax tree one can easily decouple the attribute rules from the grammar such that different attribute grammar can be used over the same formal grammar providing different computations over a parse tree without the need to rewrite the grammar.
+
+\subsection{Monads}
+<!--general-->
+A monad in functional programming represents an encapsulated computation and its result such that it can be composed or pipelined with other monads. Monads are used to abstract over the side effects of a computation and avoid mutation. A Monad only consists if a type constructor as well as 2 operations namely `unit` and `bind`. Those semantics allow monads to be easily composable and allow a large array of manipulations. The operations on a monad can access and modify or augment its content during a **map** call without giving up it's external type structure.
+ 
+<!--monadic parser-->
+Monads can also be used for parsing for example do they allow for easy composition of parser combinators. In general the use of parser combinators would lead to a nested structure of tuples of parse result which could either be a success or a failure. To avoid those nested structured and repetitive checks one can use a monad which would automatically cascade a parse failure without explicit handling or checks at each level.
+`type M a = String -> [(a, String)]`
+A similarly technique has also been used for the Scala Parser combinator even though, due to to a less principled implementation, they can only be considered as partly monadic in Scala.
+
+<!--state and reader-->
+Monads can also be used to encapsulate state such that the programmer can include state information with each result, in non-functional programming this would represent information stored in variables which are not part of the parameters of a functions.
+$unit: T \rightarrow S \rightarrow T \times S $
+Another example is the reader monad (also called environment monad) which allows the pipelined monads to share an environment which they can read from and augment with new elements.
+$unit: T \rightarrow E \rightarrow T $
+for instance the result of reader together with the input still left to read. This has been described in the paper "Monads for functional programming" by Philip Wadler. In general the state monad can carry any intermediate result of a partially applied evaluation whereas the reader contains individual collected result such as an environment of things encountered during a computation
+
+<!--monad transformers-->
+For the creation of the augmented parser combinator framework some influence was taken from monad transformers which are type constructors which take a monad as argument and give a monad as result. This allows to compose monads in order to get a new monadic structure combining the features if the underlying ones. For instance the reader monad transformer
+$unit: A \rightarrow E \rightarrow M A $ which takes an environment and some monad as input and apply the reader transformation to the content of the monad given as argument. 
+
+<!--Monadic Parsing?
+"internal DSLs are limited by the syntax of the host language (constraint by features of programming language)"
+"external DSLs are only limited by the parser"
+monad transformers allow to stack monads-->
+
+<!-- CFG vs CSG $G = (V\,, \Sigma\,, R\,, S\,) $ -->
+
+\subsection{Parser combinators}
+Compared to the clumsy parser generator tools which generate parser from a context free grammar, Scala took inspiration from Haskell and its parser combinators. Parser generators are a library DSL which can be used for compositional parsing using smaller building blocks.
+Since Scala 2.11 they have been factored out of the scala language into a separate library which can be used in your projects by including them with sbt:
+`libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"`
+There are a set of combinator which can be used to create composed parser such as the sequential composition combinator `parserA ~ parserB` which will return a ParseResult of both `parserA` and `parserB` concatenated (in a ~(a:A, b:B) object). It is easy to do pattern matching on those results as a syntactically sugared infix notation exists: a ~ b
+
+\subsection{flatMap and context sensitive parsing}
+One important parser combinator is the `flatMap` combinator, also called `into`:
+`def >>[U](fq: T => Parser[U]) = into(fq) = flatMap(fq)`
+This combinator helps to overcome some limitations of traditional parsers described earlier as it allows local context sensitivity during parsing. For instance does this method allow to extract the `message length` information form a message header such that the body parser knows when to stop reading input. Another example would be a message dispatcher which would switch to use a different body parser implementation depending on the message type described in the header.

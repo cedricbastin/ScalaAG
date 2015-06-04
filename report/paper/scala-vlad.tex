@@ -1,0 +1,50 @@
+% "define" Scala
+\lstdefinelanguage{scala}{
+  morekeywords={abstract,case,catch,class,def,%
+    do,else,extends,false,final,finally,%
+    for,if,implicit,import,match,mixin,%
+    new,null,object,override,package,%
+    private,protected,requires,return,sealed,%
+    super,this,throw,trait,true,try,%
+    type,val,var,while,with,yield},
+  otherkeywords={=>,<-,<\%,<:,>:,\#,@},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[n]{/*}{*/},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]""",
+  moredelim=**[is][\btHL]{`}{`},
+}
+
+% Default settings for code listings
+% \lstset{language=scala,showstringspaces=false,columns=flexible, basicstyle=\footnotesize \ttfamily}
+% \definecolor{ggray}{gray}{0.5}
+% \renewcommand{\ttdefault}{pcr}
+\lstset{
+  % frame=tb,
+  language=scala,
+%   aboveskip=3mm,
+%   belowskip=3mm,
+%   showstringspaces=false,
+%   columns=flexible,
+  basicstyle={\footnotesize \ttfamily},
+%   %basicstyle=\LSTfont,
+% %% numbers:
+% %  numbers=none,
+%   numbers=left,
+%   %xleftmargin=2em,
+%   %framexleftmargin=1.5em,
+% %%% end numbers
+%   numberstyle=\tiny\color{gray},
+  keywordstyle=\bfseries,
+  commentstyle=\em\color{ggray},
+  stringstyle=\em,
+% %  keywordstyle=\color{blue},
+% %  commentstyle=\color{OliveGreen},
+% %  stringstyle=\color{Purple},
+%   frame=single,
+%   breaklines=true,
+%   breakatwhitespace=true
+  tabsize=4
+}
