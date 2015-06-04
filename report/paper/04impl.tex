@@ -79,6 +79,6 @@ Obviously the attributes included the *Answer* need to be captured somewhere suc
 \begin{lstlisting}
   case class AGSuccess[+T](result: T, next: Input, ans: Answer) extends AGParseResult[T]
   case class AGFailure(msg: String, next: Input) extends AGParseResult[Nothing]
-\end{lstlisting}
+\begin{lstlisting}
 
 This allows us to have monad-like structure and semantics such that the content of Answer can potentially change a Success to a Failure only depending on semantic features.
