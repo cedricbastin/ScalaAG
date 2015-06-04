@@ -30,9 +30,6 @@ trait StlcGrammar extends AGParsers with StlcSig {
     lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>>[Answer] ({ //[Answer]
       //case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
       case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
-      //~("\\", ~(x: String, ~(":", ~(tp: Type, ".")))) => absHead(x, tp)
-      // "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
-      //[~[String, ~[String, ~[String, Type]]]] => absHead(x, tp)
     }, combine)
     //}
   }

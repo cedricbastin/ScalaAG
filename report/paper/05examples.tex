@@ -1,5 +1,5 @@
 \section{Examples}
-The use of the framework is best illustrated by concrete examples which explain the use of the "Answer" environment. We will show several example to explain the use of AGParser as collector and transformer over parse trees.
+The use of the framework is best illustrated by concrete examples which explain the use of the \verb/Answer/ environment. We will show several example to explain the use of AGParser as collector and transformer over parse trees.
 
 \subsection{Typing}
 Calculating the type of an expression is a typical case of a transformation which will return different information of a syntactic tree than what's given at the input.
@@ -94,6 +94,8 @@ trait RepMinAlgebra extends RepMinSig {
 
   def node(l:TreeF, a:Answer, r:TreeF): TreeF = {case i:Int => Node(l(i), i, r(i))}
   def leaf = {case _:Int => Leaf}
+
+  def combine(a1:Answer, a2:Answer):Answer = if (a1 < a2) a1 else a2
 }
 \end{lstlisting}
 
