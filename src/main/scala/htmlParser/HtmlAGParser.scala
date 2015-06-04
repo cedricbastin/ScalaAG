@@ -45,15 +45,14 @@ case class Property(key:String, value:String) {
 
 trait HtmlGrammar extends AGParsers with HtmlSig {
   lexical.delimiters ++= List("<", ">", "\\", """"""", "=")
-  //lexical.reserved ++= List("Bool", "Nat", "true", "false", "if", "then", "else", "succ", "pred", "iszero", "let", "in")
 
-  def PropertyP: AGParser[Property] = {
-    lift(ident) ~ lift("=")  ~ lift(ident) ^^ { //~ lift(""""""")
-      case name ~ eq ~ value =>
-        println("property")
-        Property(name, value)
-    }
-  }
+//  def PropertyP: AGParser[Property] = {
+//    lift(ident) ~ lift("=")  ~ lift(ident) ^^ { //~ lift(""""""")
+//      case name ~ eq ~ value =>
+//        println("property")
+//        Property(name, value)
+//    }
+//  }
 
   def Start: AGParser[(String, List[Property])] = {
     //(f: T => U, add:(Answer, U) => Answer)

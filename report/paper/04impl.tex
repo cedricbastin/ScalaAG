@@ -15,7 +15,7 @@ When the framework is used we suggest to decouple semantic functions from the pa
 \subsection{AGAlgebra}
 \begin{lstlisting}
 trait MyAlgebra extends AGSig {
-  type Answer = List[String] //e.g. environment
+  type Answer = List[String] //environment
 
   def start(tag:String, ps:List[Property], a:Answer):Answer = tag :: a
 \end{lstlisting}
@@ -51,34 +51,41 @@ With the use of semantic functions in a parser one can easily see that the added
 Due to the added environment for attribute results which needs to be passed around between parser combinators and possibly used or augmented, the standard combinators need to be adapted for this use. The changes mostly influence the *sequence* and *map* combinators.
 We decided to use the double arrow notation *>>* to express whenever the environment is passed on between consecutive parsers and how the semantic functions applied in each step influence this Answer environment. 
 
-\subsection{sequencing: ~ / \>>~ / ~>> / \>>~>>}
+\subsection{sequencing:  }
+% \verb/\>>~/  \verb/~>>/  \verb/\>>~>>/}
 As explained above the inputed of a parser if often unstructured and linear and thus requires the programmer to encode the hierarchy and scope of a specific combinator manually. 
 For instance the sequencing combinator can be used to combine 2 smaller parser, however each of those parser might potentially change the answer environment.
 The given notation is not to be confused with the `~>` *drop-right* combinator!
-For instance the "flow" of the Answer object of the operator `parserA >>~>> parserB` can be symbolized by `parserA >> parserB >> ...` which means that the potentially updated environment flows both between the 2 parsers and it is also passed on to whatever follow then. On the contrary `parserA ~>> parserB` means that only the answer from the second parser will be used in consecutive parsers
+% For instance the "flow" of the Answer object of the operator `parserA >>~>> parserB` can be symbolized by `parserA >> parserB >> ...` which means that the potentially updated environment flows both between the 2 parsers and it is also passed on to whatever follow then. On the contrary `parserA ~>> parserB` means that only the answer from the second parser will be used in consecutive parsers
 The full interaction can be expressed in a graph for and easy to understand illustration of how the different *answer piping* interrelate.
-<img src="ans_piping.png" width="500px" style="display: block;margin-left: auto;margin-right: auto;"\>
-Some confusion might occur due to the left associativity of parser combinators which makes some grouping implicit and tough to see which environment is actually piped where.
+\includegraphics[width=8cm]{ans_piping.png}Some confusion might occur due to the left associativity of parser combinators which makes some grouping implicit and tough to see which environment is actually piped where.
 The programmer might need to use parentheses in order to keep the environment in the correct scope and make his attempt more clear.
 
 
-\subsection{mapping: \begin{lstlisting}^^ / \>>^^ / ^^>> / \>>^^>>\end{lstlisting}}
+\subsection{mapping: }
+% ^^ / \>>^^ / ^^>> / \>>^^>>
 Whenever a mapping function is applied on the result of a parser this functionality might influence the attribute environment which thus needs updating. On the other hand some semantic functions applied to a parse result might also need to access the attribute environment in order to apply a specific functionality. We used the same notation to express the different between mapping function which need to access the environment in order to apply the semantic function and the ones that augment the existing environment with new attribute values.
 The function signatures look as follows:
 
 \begin{lstlisting}
-def ^^[U](f: T => U) = map(f)
-def >>^^[U](f: (T, Answer) => U) = mapWithAns(f)
-def ^^>>[U](f: T => U, add:(Answer, U) => Answer) = mapIntoAns(f, add)
-def >>^^>>[U](f: (T, Answer) => (Answer, U)) = mapWithAnsIntoAns(f)
+def ^^[U](f: T => U):AGParseResult[U] =
+  map(f)
+def >>^^[U](f: (T, Answer) => U):AGParseResult[U] =
+  mapWithAns(f)
+def ^^>>[U](f: T => U, add:(Answer, U) => Answer):AGParseResult[U] =
+  mapIntoAns(f, add)
+def >>^^>>[U](f: (T, Answer) => (Answer, U)):AGParseResult[U] =
+  mapWithAnsIntoAns(f)
 \end{lstlisting}
 
 \subsection{ParseResult}
 Obviously the attributes included the *Answer* need to be captured somewhere such that they can be passed around implicitly whenever they are not used. This is achieved by including the Answer inside the ResultType itself such that it can either be accessed or untouched depending on which attributes and evaluation it need to during the parsing.
 
 \begin{lstlisting}
-  case class AGSuccess[+T](result: T, next: Input, ans: Answer) extends AGParseResult[T]
-  case class AGFailure(msg: String, next: Input) extends AGParseResult[Nothing]
-\begin{lstlisting}
+  case class AGSuccess[+T](result: T, next: Input, ans: Answer)
+    extends AGParseResult[T]
+  case class AGFailure(msg: String, next: Input)
+    extends AGParseResult[Nothing]
+\end{lstlisting}
 
 This allows us to have monad-like structure and semantics such that the content of Answer can potentially change a Success to a Failure only depending on semantic features.

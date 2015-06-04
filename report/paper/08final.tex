@@ -1,0 +1,18 @@
+\section{future work}
+With the current framework all attributes need to be declared explicitly in the Answer type (which might be a case class or heterogeneous tuple) as they are not directly associated with the nodes themselves but rather present some global information of the parsing process which can be used and augmented by consecutive parsers.
+As the parsing process generally works from left to right the only way to use attributes from a right hand side parser (e.g. value of a tree node) is by using the the lazy evaluation workaround used by the \verb/RepMin/ example. 
+Using several attribute algebras at once is tedious and requires manual composition as the Answer type needs to be adapted by hand to carry both calculated values.
+The current way of manually specifying where the Answer result should be 
+
+\section{Acknoledgments}
+I would like to thank both my official and unofficial supervisor for the very interesting and fruitful discussions. Through weekly meetings we were able to explore the different options as well a limitations caused by either the language or the choice of implementation such that the development of the project also helped to explore the more theoretical side of the 
+
+\section{references}
+attribute grammars: 1967 Semantics of context-free languages, by Don Knuth, 
+combinator parsing (Wadler, 1985; Hutton, 1992; Fokker, 1995),
+Monadic Parser Combinator, Hutton+Meijer 1996, https://www.cs.nott.ac.uk/~gmh/monparsing.pdf 
+scala parser combinators: https://github.com/scala/scala-parser-combinators
+Kiama: https://code.google.com/p/kiama/
+TQL by Eric
+DynaProg - Thierry Coppey
+why attribute grammars matter: %https://wiki.haskell.org/The_Monad.Reader/Issue4/Why_Attribute_Grammars_Matter

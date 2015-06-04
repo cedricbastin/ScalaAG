@@ -1,0 +1,109 @@
+\section{Examples}
+The use of the framework is best illustrated by concrete examples which explain the use of the "Answer" environment. We will show several example to explain the use of AGParser as collector and transformer over parse trees.
+
+\subsection{Typing}
+Calculating the type of an expression is a typical case of a transformation which will return different information of a syntactic tree than what's given at the input.
+
+Note that the given code only focuses on the details of the environment treatment, other important details were left out, please check out the code on github for the full implementation.
+
+The abstract signature just contains the signatures of the possible semantic function and their abstract return type representing an attribute.
+\begin{lstlisting}
+trait StlcSig extends AGSig {
+  def vari(s:String, a:Answer): Answer
+  def absHead(ident:String, ty:Type): Answer
+  def abs(tp:Answer, a:Answer): Answer
+}
+\end{lstlisting}
+
+When looking at the parsers we just consider the interesting cases where the environment variables names and their corresponding types is either augmented or read. We can see that the \verb/abstraction/ parser had to be split into 2 parts such that the first parser is responsible of augmenting the environment before handing it over to the next parser.
+We can see that we have to use the \verb/mapWithAns/ to type a variable using the existing environment and \verb/mapIntoAns/ to augment the existing environment to include a new vairable-type mapping.
+\begin{lstlisting}
+trait StlcGrammar extends AGParsers with StlcSig {
+  def AbsHead: AGParser[Answer] = {
+    lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>>[Answer] ({
+      case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
+    }, combine)
+  }
+
+  def SimpleTerm: AGParser[Answer] = {
+    ...
+      | AbsHead >>~ Term ^^ { //pipe augmented answer with environment
+      case head ~ term =>
+        abs(head, term)
+    } | lift(failure("illegal start of simple term"))
+  }
+}
+\end{lstlisting}
+
+In the concrete algebra we can see the corresponding semantic functions which are use to either augment the environment or extract information from it.
+\begin{lstlisting}
+trait SltcTypingAlgebra extends StlcSig {
+  type Env = Map[String, Type]
+  case class Answer(env: Env, tpe: Type)
+
+  def vari(s:String, a:Answer): Answer = { //answer is just passed for environment information
+    a.env.get(s) match {
+      case Some(t) => a.copy(tpe = t) //copy the type from the environment
+      case None => a.copy(tpe = WrongType("could not be found"))
+    }
+  }
+
+  def absHead(ident:String, ty:Type): Answer = {
+    Answer(Map(ident -> ty), ty) //no env involved so far -> needs combine operator
+  }
+
+  def abs(a1:Answer, a2:Answer): Answer = {
+    combine(a1, a2)
+  }
+}
+\end{lstlisting}
+
+\subsection{RepMin}
+Repmin is a famous example where, with a tree given as input we want to create a tree of the same shape where each value in the nodes corresponds to the global minimum. 
+We use it as a prime example to show that the result of the semantic functions can be pipelined through the tree. We think that it is an interesting example which shows that attributes can be used anywhere in the tree and that the constructed can be substantially different from the original object without ever constructing an intermediate representation.
+This example was implemented on a tree of integers. In the given example the only attribute we need to keep track of is the minimum value found so far which converges to the global minimum. As the global minimum is not immediately available we cannot reconstruct the corresponding nodes based on local information. Due to this constraint we build a higher order semantic functions to return itself a function which will construct the final tree only once the minimum value is found. This creates some kind of call-back tree similar to continuation passing style where each returned function waits to be fed with the found minimum. Once the whole tree as been read we also have found the global 
+
+\begin{lstlisting}
+trait RepMinSig extends AGSig {
+  type TreeF = Answer => Tree //evaluate when minimum is found
+
+  def node(a1:TreeF, i:Answer, a2:TreeF):TreeF
+  def leaf: TreeF
+}
+\end{lstlisting}
+The signature gives an abstract high level definition of the computation one might want to perform on each node.
+
+\begin{lstlisting}
+trait RepMinGrammar extends AGParsers with RepMinSig {
+  def Root:AGParser[Tree] = { //fully evaluate at the end!
+    TreeP >>^^ {case (t, ans) => t(ans)} |
+      lift(failure("tree not parsable!"))
+  }
+  def TreeP:AGParser[TreeF] = {NodeP | LeafP}
+  def NodeP:AGParser[TreeF] = {
+    lift("(") >>~>> TreeP >>~>> ValP >>~>> TreeP >>~>> lift(")") >>^^>> {
+      case (s1 ~ a1 ~ a ~ a2 ~ s2, ans) => (combine(ans, a), node(a1, a, a2))
+    }
+  }
+\end{lstlisting}
+As you can see the root parser is used to capture the global minimum and use it to evaluate the constructed function which will yield as a result a tree of the same shape as the original one with each value replaced with the minimum.
+
+\begin{lstlisting}
+trait RepMinAlgebra extends RepMinSig {
+  type Answer = Int
+
+  def node(l:TreeF, a:Answer, r:TreeF): TreeF = {case i:Int => Node(l(i), i, r(i))}
+  def leaf = {case _:Int => Leaf}
+}
+\end{lstlisting}
+
+As described earlier an important use case would be a parser for xml which would be able to extract specific content from a document and also validate that matching opening and closing tags exist. This can already be achieved using flatMap or even the simple sequencing parser however we tried to take a different approach namely to stack the the opening tag and destack them whenever we find the corresponding closing tags, this helps us to avoid growing a too large call stack and 
+\subsection{Html}
+
+
+\subsection{Staging with LMS}
+As the AGParsers add another layer of abstraction on top of the already quite slow implementation of the Parser combinators we thought that it would be a good idea to stage the framework using LMS such that efficient code can be emitted. This method has been proven very helpful and fast in the development of *FastParser* (which is macro based and still 2x faster than the LMS version).
+However does there not yet exist a finished LMS implementation of the *StandardTokenParsers* which could have been used as a solid starting point. Thus we tried to apply the method to a more basic CharParsers example which is implemented and has been tested.
+However do to a limit of time we did finish the implementation of the staged version of the AGParsers even though it would be interesting to see the efficiency gain.
+
+% CharParsers example $a^nb^nc^n$

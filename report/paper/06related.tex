@@ -1,0 +1,21 @@
+\section{Related work}
+(Jonas: object algebra to attribute grammar)
+\subsection{Kiama}
+*Kiama is a Scala library for language processing which allows analysis and transformation on structured data using formal languages processing paradigms such as attribute grammars and tree rewriting.*
+Through the use of Scala macros, Kiama augments existing tree structures with named or unnamed attribute function which can then be used to evaluate local or global properties.
+\begin{verbatim}def attr[T,U] (f : T => U) : CachedAttribute[T,U] = macro AttributionCoreMacros.attrMacro[T,U,CachedAttribute[T,U]]\end{verbatim}
+This makes the relation between the parents and child nodes in a tree explicit and thus allows the different attribute method to access each other. We wanted to avoid constructing an additional structure on top of the tree structure and actually completely dismiss the original parse tree if it is not needed for afterwards. With the AGParser it is possible to create parent-child and child-parents calls however do they need to be explicit.
+Kiama is also able to treat more general graphs and thus to handle cyclic references
+
+\subsection{TQL}
+The tree query language presented by Eric Beguet offered an interesting insight on tree traversals and transformers even though they have been applied in the less general context of Scala meta trees. It can use different traversal techniques such as top-down or bottom-up or even break a specific traversal depending on the 
+
+haskell paper
+Monad paper (Reader, Env)
+
+\subsection{Generalising Tree Traversals to DAGs}
+In their paper Bahr and Axelsson present generalized recursion schemes based on attribute grammars which can be applied to trees and graphs, namely DAGs. The main issue with attribute grammars on DAGs is that the different attributes might be recomputed for Nodes which share the same branches and the paper presents a method to avoid this. The fold operations presented in previous work cannot be applied as some parameters of shared nodes might need 
+
+\subsection{DynaProg}
+Some inspiration has been taken from the work done by Thierry Coppey who created a parsing framework which would use dynamic programing in order to construct the most efficient parsing tree. Most importantly we 
+Mostly the separation of the framework into an abstract signature, a concrete algebra and a grammar combining using the abstract definition such that it can be composed with any concrete algebra has been influenced by this work.
