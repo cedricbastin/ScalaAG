@@ -39,8 +39,9 @@ trait SltcTypingAlgebra extends StlcSig {
   }
 
   //FIXME: we need the var name as well as them type after we added the tuple to the mapping
-  def absHead(ident:String, ty:Type): Answer = {
-    Answer(Map(ident -> ty), ty) //no env involved so far -> needs combine operator
+  def absHead(ident:String, ty:Type): (Answer, Answer) = {
+    val ret = Answer(Map(ident -> ty), ty)
+    (ret, ret) //we should make this more polyvalent
   }
 
   def abs(a1:Answer, a2:Answer): Answer = {

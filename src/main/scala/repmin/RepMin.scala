@@ -47,12 +47,11 @@ trait RepMinGrammar extends AGParsers with RepMinSig {
   def LeafP:AGParser[TreeF] = {
     lift("x") ^^^ leaf
   }
-
   def ValP:AGParser[Answer] = {
     lift(numericLit) >>^^>> {
       case (s, ans) =>
         val res = combine(ans, toAns(s)) //"add to environment"
-        (res, res)
+        (res, res) //return value of the parser is not important
     }
   }
 }

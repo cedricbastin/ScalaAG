@@ -20,8 +20,8 @@ trait AGSig {
  * An partial implementation of a parser library to allow to compute semanic function over a parse tree at the same time as parsing
  */
 trait AGParsers extends StandardTokenParsers with AGSig {
-  case class PA[+T](t:T, a:Answer)
-  implicit def unpack[T](pa:PA[T]):T = pa.t //can this not be covariant?
+//  case class PA[+T](t:T, a:Answer)
+//  implicit def unpack[+T](pa:PA[T]):T = pa.t
 
   // type Answer is an abstract data type which can be configures to contain differnent environments needed to execute the semantic functions
   // is used instead of carrying around an additional type parameter
@@ -111,18 +111,18 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
     def >>^^[U](f: (T, Answer) => U) = mapWithAns(f)
 
-    def mapIntoAns[U](f: T => U, add:(Answer, U) => Answer) = AGParser[U] {
+    def mapIntoAns[U](f: T => (U, Answer)) = AGParser[U] { //returned answer needs to be merged with previous one
       case (ans, input: Input) =>
         this(ans, input) match {
-          case AGSuccess(result1, next1, _) =>
-            val res = f(result1)
-            AGSuccess(res, next1, add(ans, res))
+          case AGSuccess(result1, next1, _) => //should this new ans be used?
+            val (res, ansx) = f(result1)
+            AGSuccess(res, next1, combine(ans, ansx))
           case AGFailure(msg1, next1) =>
             AGFailure(msg1, next1)
         }
     }
 
-    def ^^>>[U](f: T => U, add:(Answer, U) => Answer) = mapIntoAns(f, add)
+    def ^^>>[U](f: T => (U, Answer)) = mapIntoAns(f)
 
     def mapWithAnsIntoAns[U](f:(T, Answer) => (Answer, U)) = AGParser[U] {
       case (ans, input: Input) =>
@@ -204,13 +204,13 @@ trait AGParsers extends StandardTokenParsers with AGSig {
      * @tparam U
      * @return
      */
-    def ~[U](that: => AGParser[U]) = AGParser[~[PA[T], PA[U]]] {
+    def ~[U](that: => AGParser[U]) = AGParser[~[T, U]] {
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
             that(ans, next1) match { //use original Answer
               case AGSuccess(result2, next2, ans2) =>
-                AGSuccess(new ~(PA(result1, ans1), PA(result2, ans2)), next2, ans) //return original Answer
+                AGSuccess(new ~(result1, result2), next2, ans) //return original Answer
               case AGFailure(msg2, next2) =>
                 AGFailure(msg2, next2)
             }

@@ -52,21 +52,25 @@ With the use of semantic functions in a parser one can easily see that the added
 Due to the added environment for attributes which needs to be passed around between parser combinators and possibly used or augmented, the standard combinators need to be adapted for this use. The changes mostly influence the \verb/sequence/ and \verb/map/ combinators.
 We decided to use the double arrow notation \verb/>>/ to express whenever the environment is passed on between consecutive parsers and how the semantic functions applied in each step influence this Answer environment. The given notation is not to be confused with the \verb/~>/ \textbf{drop-right} combinator!
 
-\subsection{sequencing:  }
-% \verb/\>>~/  \verb/~>>/  \verb/\>>~>>/}
-As explained above the inputed of a parser if often unstructured and linear and thus requires the programmer to encode the hierarchy and scope of a specific combinator manually. 
+\subsection{sequencing}
+operations:\\
+sequence: \verb/~/ \\
+pipe ans1: \verb/>>~/ \\
+pipe ans2: \verb/~>>/ \\
+pipe ans1 and ans2: \verb/>>~>>/ \\
+
+As explained above the inputed of a parser is often unstructured and linear and thus requires the programmer to encode the hierarchy and scope of a specific combinator manually. 
 For instance the sequencing combinator can be used to combine 2 smaller parser, however each of those parser might potentially change the answer environment.
-% For instance the "flow" of the Answer object of the operator `parserA >>~>> parserB` can be symbolized by `parserA >> parserB >> ...` which means that the potentially updated environment flows both between the 2 parsers and it is also passed on to whatever follow then. On the contrary `parserA ~>> parserB` means that only the answer from the second parser will be used in consecutive parsers
-The full interaction can be expressed in a graph for and easy to understand illustration of how the different *answer piping* interrelate.
-\includegraphics[width=8cm]{ans_piping.png}Some confusion might occur due to the left associativity of parser combinators which makes some grouping implicit and tough to see which environment is actually piped where.
-The programmer might need to use parentheses in order to keep the environment in the correct scope and make his attempt more clear.
+For instance the "flow" of the Answer object of the operator \verb/parserA/ \verb/>>~>>/ \verb/parserB/ which means it is also passed on to whatever follow them. On the contrary `parserA ~>> parserB` means that only the answer from the second parser will be used in consecutive parsers
+The full interaction can be expressed in a graph for and easy to understand illustration of how the different \textbf{answer piping} interrelate.
 
+\includegraphics[width=8cm]{ans_piping.png}
 
-\subsection{mapping: }
-% ^^ / \>>^^ / ^^>> / \>>^^>>
-Whenever a mapping function is applied on the result of a parser this functionality might influence the attribute environment which thus needs updating. On the other hand some semantic functions applied to a parse result might also need to access the attribute environment in order to apply a specific functionality. We used the same notation to express the different between mapping function which need to access the environment in order to apply the semantic function and the ones that augment the existing environment with new attribute values.
-The function signatures look as follows:
+Some confusion might occur due to the left associativity of parser combinators which makes some grouping implicit and tough to see which environment is actually piped where.
+The programmer might need to use parentheses in order to keep the environment in the correct scope and make his attempt more clear. For instance in the case \verb/parserA/ \verb/~/ \verb/parserB/ \verb/~/ \verb/parserC/, if only the environment of \verb/parserA/ should be used in the consecutive parser we need to write: \verb/parserA/ \verb/>>~/ \verb/(/ \verb/parserB/ \verb/~/ \verb/parserC/ \verb/)/ those cases should however be borderline cases.
 
+\subsection{mapping}
+The mapping function has similar cases than the sequencing thus the signatures look familiar:
 \begin{lstlisting}
 def ^^[U](f: T => U):AGParseResult[U] =
   map(f)
@@ -78,8 +82,11 @@ def >>^^>>[U](f: (T, Answer) => (Answer, U)):AGParseResult[U] =
   mapWithAnsIntoAns(f)
 \end{lstlisting}
 
+Whenever a mapping function is applied on the result of a parser this functionality might influence the attribute environment which thus needs updating. On the other hand some semantic functions applied to a parse result might also need to access the attribute environment in order to apply a specific functionality. We used the same notation to express the differences between mapping function which need to access the environment in order to apply the semantic function and the ones that augment the existing environment with new attribute values.
+We can see that a fine tunes interplay between the different mapping and sequencing functions is needed to bring attributes values to the correct place.
+
 \subsection{ParseResult}
-Obviously the attributes included the *Answer* need to be captured somewhere such that they can be passed around implicitly whenever they are not used. This is achieved by including the Answer inside the ResultType itself such that it can either be accessed or untouched depending on which attributes and evaluation it need to during the parsing.
+Obviously the attributes included in the \textbf{Answer} need to be captured somewhere such that they can be passed around implicitly whenever they are not used. This is achieved by including the Answer inside the ResultType itself such that it can either be accessed or untouched depending on which attributes and evaluation it need to during the parsing.
 
 \begin{lstlisting}
   case class AGSuccess[+T](result: T, next: Input, ans: Answer)
@@ -89,3 +96,8 @@ Obviously the attributes included the *Answer* need to be captured somewhere suc
 \end{lstlisting}
 
 This allows us to have monad-like structure and semantics such that the content of Answer can potentially change a Success to a Failure only depending on semantic features.
+
+\subsection{Staging with LMS}
+As the AGParsers add another layer of abstraction on top of the already quite slow implementation of the Parser combinators we thought that it would be a good idea to stage the framework using LMS such that efficient code can be emitted. This method has been proven very helpful and fast in the development of the \textbf{FastParser}\cite{fastparsers} (which is macro based and still 2x faster than the LMS version).
+However does there not yet exist a finished LMS implementation of the StandardTokenParsers which could have been used as a solid starting point. Thus we tried to apply the method to a more basic CharParsers which is already implemented.
+However do to a limit of time we did finish the implementation of the staged version of the AGParsers even though it would be interesting to see the efficiency gain.
