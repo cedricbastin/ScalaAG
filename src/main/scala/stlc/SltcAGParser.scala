@@ -18,7 +18,7 @@ trait StlcGrammar extends AGParsers with StlcSig {
   lexical.delimiters ++= List("(", ")", "\\", ".", ":", "=", "->", "{", "}", ",", "*", "+")
   lexical.reserved ++= List("Bool", "Nat", "true", "false", "if", "then", "else", "succ", "pred", "iszero", "let", "in")
 
-  def Term: AGParser[SynAttr] = {
+  def Term: AGParser[Attr] = {
     SimpleTerm ~ rep(SimpleTerm) ^^ {
       case a1 ~ a2 =>
         (a1 :: a2).reduceLeft(app)
@@ -26,14 +26,14 @@ trait StlcGrammar extends AGParsers with StlcSig {
   }
 
   //special case which need special handling
-  def AbsHead: AGParser[SynAttr] = {
+  def AbsHead: AGParser[Attr] = {
     lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>> { //[Answer]
       //case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
       case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
     }
   }
 
-  def SimpleTerm: AGParser[SynAttr] = {
+  def SimpleTerm: AGParser[Attr] = {
     lift("true") ^^^ {
       tru
     } | lift("false") ^^^ {

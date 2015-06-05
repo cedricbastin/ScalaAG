@@ -11,9 +11,10 @@ trait AGSig {
    * the user can define those environments/ attributes as he likes
    */
 
-  type InAttrs //inherited attributes
-  type AnswerF = InAttrs => InAttrs //lazily computed environment
-  def combine(a1:InAttrs, a2:InAttrs):InAttrs
+  type AttrEnv //inherited attributes
+  type Attr //synthezised attributes
+  type AttrEnvLazy = AttrEnv => AttrEnv //lazily computed environment
+  def combine(a1:AttrEnv, a2:AttrEnv):AttrEnv
 }
 
 /*
@@ -28,20 +29,20 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
   sealed abstract class AGParseResult[+T] // wrapper class for ParseResult[T] which cannot be extended
   object AGParseResult {
-    def apply[T](pr:ParseResult[T], ans:InAttrs) = pr match {
+    def apply[T](pr:ParseResult[T], ans:AttrEnv) = pr match {
       case Success(result, next) => AGSuccess(result, next, ans)
       case Failure(msg, next) => AGFailure(msg, next)
     }
   }
   //TODO: class NoSuccess extends ParseResult, Failure extends NoSuccess, Error extends NoSuccess
-  case class AGSuccess[+T](result: T, next: Input, ans: InAttrs) extends AGParseResult[T] {
+  case class AGSuccess[+T](result: T, next: Input, ans: AttrEnv) extends AGParseResult[T] {
     def check = {if (result == null) AGFailure("check failed", next)}
   }
   case class AGFailure(msg: String, next: Input) extends AGParseResult[Nothing]
 
   //T is independent from Answer but can be included as additional information in an Answer if needed
   // parser combinator methods arguments need to be call by name otherwise the stack will overflow
-  abstract class AGParser[+T] extends ((InAttrs, Input) => AGParseResult[T]) {
+  abstract class AGParser[+T] extends ((AttrEnv, Input) => AGParseResult[T]) {
 
     def validatePrim(p: T => Boolean) = AGParser[T] { //this method should be usable combined with map etc...
       case (ans, input: Input) =>
@@ -54,11 +55,11 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    def validate(p: (T, InAttrs) => Boolean) = AGParser[T] { //this method should be usable combined with map etc...
+    def validate(p: (T, AttrEnv) => Boolean) = AGParser[T] { //this method should be usable combined with map etc...
       case (ans, input: Input) =>
         this(ans, input) match {
-          case AGSuccess(result1, next1, _) =>
-            if (p(result1, ans)) AGSuccess(result1, next1, ans)
+          case AGSuccess(result1, next1, ans1) =>
+            if (p(result1, ans1)) AGSuccess(result1, next1, ans1) //pipe this answer?
             else AGFailure("validation failed on: "+result1, next1)
           case AGFailure(msg1, next1) =>
             AGFailure(msg1, next1)
@@ -99,7 +100,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    def mapWithAns[U](f: (T, InAttrs) => U) = AGParser[U] {
+    def mapWithAns[U](f: (T, AttrEnv) => U) = AGParser[U] {
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
@@ -109,9 +110,9 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    def >>^^[U](f: (T, InAttrs) => U) = mapWithAns(f)
+    def >>^^[U](f: (T, AttrEnv) => U) = mapWithAns(f)
 
-    def mapIntoAns[U](f: T => (U, InAttrs)) = AGParser[U] { //returned answer needs to be merged with previous one
+    def mapIntoAns[U](f: T => (U, AttrEnv)) = AGParser[U] { //returned answer needs to be merged with previous one
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, _) => //should this new ans be used?
@@ -122,9 +123,9 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    def ^^>>[U](f: T => (U, InAttrs)) = mapIntoAns(f)
+    def ^^>>[U](f: T => (U, AttrEnv)) = mapIntoAns(f)
 
-    def mapWithAnsIntoAns[U](f:(T, InAttrs) => (InAttrs, U)) = AGParser[U] {
+    def mapWithAnsIntoAns[U](f:(T, AttrEnv) => (AttrEnv, U)) = AGParser[U] {
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
@@ -135,7 +136,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    def >>^^>>[U](f: (T, InAttrs) => (InAttrs, U)) = mapWithAnsIntoAns(f)
+    def >>^^>>[U](f: (T, AttrEnv) => (AttrEnv, U)) = mapWithAnsIntoAns(f)
 
 //    def mapWithAnsIntoAns[U](f:(T, Answer) => U)(add:(Answer, U) => Answer) = {
 //      case (ans: Answer, input: Input) =>
@@ -175,7 +176,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     def >>[U](f: T => AGParser[U]) = flatMap(f)
     def into[U](f: T => AGParser[U]) = flatMap(f)
 
-    def flatMapWithAns[U](f: (T, InAttrs) => AGParser[U]) = AGParser[U] {
+    def flatMapWithAns[U](f: (T, AttrEnv) => AGParser[U]) = AGParser[U] {
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
@@ -340,19 +341,19 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     case (ans, input: Input) =>
       pars(ans, input) match {
         case AGSuccess(result1, next1, ans1) =>
-          rep(pars)(ans1, next1) match {
+          repWithAns(pars)(ans1, next1) match {
             //pipe original Answer
             case AGSuccess(result2, next2, ans2) => AGSuccess(result1 :: result2, next1, ans2) //propagate old Answer
-            case fail => AGSuccess(result1 :: Nil, next1, ans)
+            case fail => AGSuccess(result1 :: Nil, next1, ans1) //pipe previous ans still
           }
-        case AGFailure(msg1, next1) => AGSuccess(Nil, next1, ans) //rep parser always suceeds
+        case AGFailure(msg1, next1) => AGSuccess(Nil, next1, ans) //rep parser always suceeds -> can parse Nil!
       }
   }
 
   object AGParser {
     //companion object to build new parsers without the need for and "val outer = this" reference
-    def apply[V](f: (InAttrs, Input) => AGParseResult[V]) = new AGParser[V] {
-      def apply(ans: InAttrs, input: Input) = f(ans, input)
+    def apply[V](f: (AttrEnv, Input) => AGParseResult[V]) = new AGParser[V] {
+      def apply(ans: AttrEnv, input: Input) = f(ans, input)
     }
   }
 }
