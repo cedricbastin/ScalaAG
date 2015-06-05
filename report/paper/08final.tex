@@ -1,17 +1,12 @@
-\section{future work}
-With the current framework all attributes need to be declared explicitly in the Answer type (which might be a case class or heterogeneous tuple) as they are not directly associated with the nodes themselves but rather present some global information of the parsing process which can be used and augmented by consecutive parsers.
+\section{Future work}
+With the current framework all attributes need to be declared explicitly in the \verb/AttrEnv/ type (which might be a case class or heterogeneous tuple) as they are not directly associated with the nodes themselves but rather present some global information of the parsing process which can be used and augmented by consecutive parsers.
 As the parsing process generally works from left to right the only way to use attributes from a right hand side parser (e.g. value of a tree node) is by using the the lazy evaluation workaround used by the \verb/RepMin/ example.
-Using several attribute algebras at once is tedious and requires manual composition as the Answer type needs to be adapted by hand to carry the values of both computations.
+Using several attribute algebras at once is still tedious and requires manual composition as the attribute type and the correspondong semantic functions needs to be adapted by hand to carry and manipulate the values of both computations.
 
 In the current implementation the full parse tree is replace by the attributes, if this was to be avoided then we would need to include both the original return value as well as the manipulated one in the ParseResult. This would however also mean that the programmer needs to handle those cases explicitly which would change the interface from the traditional scala parser combinator framework.
-currently : \begin{verbatim} def ~[U](that: => AGParser[U]) = AGParser[T, U]\end{verbatim}
-suggestion: \begin{verbatim} def ~[U](that: => AGParser[U]) = AGParser[(T, Answer), (U, Answer)]
-\end{verbatim}
 
 \section{Acknoledgments}
 I would like to thank my supervisors Sandro and Mano for the very interesting and insightful discussions. Through weekly meetings we were able to explore the different options as well a limitations caused by either the programming language or the choice of implementation such that the development of the project also helped to explore the theory behind parsing and attribute grammars.
-
-\section{references}
 
 \begin{thebibliography}{9}
 \bibitem{tql}

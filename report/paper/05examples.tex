@@ -199,4 +199,4 @@ trait HtmlGrammar extends AGParsers with HtmlSig {
 \end{lstlisting}
 
 The interesting part in this example is that we rather build a recognizer than a parser. By using \verb/repWithAns(End | Start)/ we rather build a recognizer such that the parser call stack cannot blow up.
-This could for example be used to extract only specific parts of an xml documents (for example all the image tags) and throwing the other information away without even building their full parse structure in the first place.
+This could for example be used to extract only specific parts of an xml documents (for example all the links) and throwing the other information away without building their correspondng parse structure.

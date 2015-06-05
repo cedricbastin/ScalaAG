@@ -1,20 +1,21 @@
 \section{Related work}
 \subsection{Kiama}
 Kiama is a Scala library for language processing which allows analysis and transformation on structured data using formal languages processing paradigms such as attribute grammars and tree rewriting.
-Through the use of Scala macros, Kiama augments existing tree structures with named or unnamed attribute function which can then be used to evaluate local or global properties.\\
-\begin{verbatim}def attr[T,U] (f : T => U) : CachedAttribute[T,U] = macro AttributionCoreMacros.attrMacro[T,U,CachedAttribute[T,U]]\end{verbatim}
-This makes the relation between the parents and child nodes in a tree explicit and thus allows the different attribute method to access each other. We wanted to avoid constructing an additional structure on top of the tree structure and actually completely dismiss the original parse tree if it is not needed afterwards.
-Kiama is also able to treat more general graphs and thus to handle cyclic references
+Through the use of Scala macros, Kiama augments existing tree structures with attribute functions which can then be used to evaluate local or global properties.\\
+\begin{verbatim}def attr[T,U] (f : T => U) : CachedAttribute[T,U] =
+  macro AttributionCoreMacros.attrMacro[T,U,CachedAttribute[T,U]]\end{verbatim}
+This makes the relation between the parents and child nodes in a tree explicit and thus allows the different attribute method to access each other. We wanted to avoid constructing an additional structure on top of the tree structure and actually completely dismiss the original parse tree if it is not needed anyways.
+Kiama is also able to treat more general graphs and thus has a mechanism to handle cyclic references
 
 %(Jonas: object algebra to attribute grammar)
 
-\subsection{TQL\cite{tql}}
-The tree query language presented by Eric Beguet offered an interesting insight on tree traversals and transformers which have been applied in the context of Scala meta trees. It can use different traversal techniques such as top-down or bottom-up.
+\subsection{TQL}
+The tree query language presented by Eric Beguet offered an interesting insight on tree traversals and transformers which have been applied in the context of Scala meta trees. It can use different traversal techniques such as top-down or bottom-up but can handle more comlicated interrelations.
 
 \subsection{Generalising Tree Traversals to DAGs}
-In their paper, Bahr and Axelsson present generalized recursion schemes based on attribute grammars which can be applied to trees as well as DAGs. The main issue with attribute grammars on DAGs is that the different attributes might be recomputed for nodes which share the same branches, the paper presents a method to avoid this and to treat all shared nodes only once. A generalized fold method from previous work not work for context-dependent functions on trees with sharing. Moreover in the presented method is completely agnostic on the underlying structure such that it works either on trees or DAGs.
-The also provide a way to combine multiple semantic function in order to use several attributes at once.
+In their paper, Bahr and Axelsson present generalized recursion schemes based on attribute grammars which can be applied to trees as well as DAGs. The main issue with attribute grammars on DAGs is that the different attributes might be recomputed for nodes which share the same branches, the paper presents a method to avoid this and to treat all shared nodes only once. A generalized fold method from previous work does not work for context-dependent functions on trees with sharing. Moreover the presented method is completely agnostic on the underlying structure such that it works either on trees or DAGs.
+They also provide a way to combine multiple semantic function in order to use several attributes at once.
 
 \subsection{DynaProg}
-Some inspiration has been taken from the work done by Thierry Coppey who created a dynamic programming framework which was able to create the most efficient order for a series of matrix multiplications.
-Most importantly we took inspiration of the decoupling between the syntactic and semantic parts, i.e. the separation of the framework into an abstract signature, a parsing grammar and concrete algebras implementing the abstract methods defined in the signature.
+Some inspiration has been taken from the work done by Thierry Coppey who created a dynamic programming framework which was able to create the most efficient operation application order for a series of matrix multiplications.
+Most importantly we took inspiration of the decoupling between the syntactic and semantic parts, i.e. the separation of the framework into an abstract signature, a parsing grammar and concrete algebras implementing the abstract methods defined in the corresponding signature.
