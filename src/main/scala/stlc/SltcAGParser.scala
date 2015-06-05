@@ -18,22 +18,22 @@ trait StlcGrammar extends AGParsers with StlcSig {
   lexical.delimiters ++= List("(", ")", "\\", ".", ":", "=", "->", "{", "}", ",", "*", "+")
   lexical.reserved ++= List("Bool", "Nat", "true", "false", "if", "then", "else", "succ", "pred", "iszero", "let", "in")
 
-  def Term: AGParser[Answer] = {
+  def Term: AGParser[Ret] = {
     SimpleTerm ~ rep(SimpleTerm) ^^ {
       case a1 ~ a2 =>
-        (a1 :: a2).reduceLeft[Answer](app)
+        (a1 :: a2).reduceLeft(app)
     } | lift(failure("illegal start of term"))
   }
 
   //special case which need special handling
-  def AbsHead: AGParser[Answer] = {
+  def AbsHead: AGParser[Ret] = {
     lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>> { //[Answer]
       //case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
       case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
     }
   }
 
-  def SimpleTerm: AGParser[Answer] = {
+  def SimpleTerm: AGParser[Ret] = {
     lift("true") ^^^ {
       tru
     } | lift("false") ^^^ {

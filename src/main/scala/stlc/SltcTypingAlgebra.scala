@@ -5,66 +5,60 @@ package stlc
  * An albegra to calculate the type from simply types lambda calculus terms
  */
 trait SltcTypingAlgebra extends StlcSig {
-  type Env = Map[String, Type]
-  case class Answer(env: Env, tpe: Type) //only keep an environment
+  type Answer =  Map[String, Type]
+  type Ret = Type
+  //case class Answer(env: Env, tpe: Type) //only keep an environment
 
-  def tru():Answer = Answer(Map(), TypeBool)
-  def fals: Answer = Answer(Map(), TypeBool)
+  def tru: Ret = TypeBool
+  def fals: Ret = TypeBool
 
-  def num(s: String): Answer = Answer(Map(), TypeNat)
-  def succ(a: Answer): Answer = {
-    if (a.tpe == TypeNat) a //stays the same
-    else a.copy(tpe = WrongType("succ required Nat not: "+a.tpe))
+  def num(s: String): Ret = TypeNat
+  def succ(a: Ret): Ret = {
+    if (a == TypeNat) a //stays the same
+    else WrongType("succ required Nat not: "+a)
   }
-  def pred(a: Answer): Answer = {
-    if (a.tpe == TypeNat) a //tpe stays the same
-    else a.copy(tpe = WrongType("pred requires Nat not "+a.tpe))
+  def pred(a: Ret): Ret = {
+    if (a == TypeNat) a //tpe stays the same
+    else WrongType("pred requires Nat not "+a)
   }
-  def iszero(a: Answer): Answer = {
-    if (a.tpe == TypeNat) a.copy(tpe = TypeBool)
-    else a.copy(tpe = WrongType("iszero requires Nat not: "+a.tpe))
+  def iszero(a: Ret): Ret = {
+    if (a == TypeNat) TypeBool
+    else WrongType("iszero requires Nat not: "+a)
   }
 
-  def iff(a1: Answer, a2: Answer, a3: Answer): Answer = {
-    if (a1.tpe != TypeBool) a1.copy(tpe = WrongType("if condition should be of boolean type, not: "+a1.tpe))
-    else if (a2.tpe != a3.tpe) a2.copy(tpe = WrongType("if branches should have the same type: "+a2.tpe+" 1= "+a3.tpe))
+  def iff(a1: Ret, a2: Ret, a3: Ret): Ret = {
+    if (a1 != TypeBool) WrongType("if condition should be of boolean type, not: "+a1)
+    else if (a2 != a3) WrongType("if branches should have the same type: "+a2+" != "+a3)
     else a2 //the same types on both branches of the if statement
   }
 
-  def vari(s:String, a:Answer): Answer = { //answer is just passed for environment information
-    a.env.get(s) match {
-      case Some(t) => a.copy(tpe = t) //copy the type from the environment
-      case None => a.copy(tpe = WrongType("variable name could not be found in the enviroment: "+s+a.env))
+  def vari(s:String, a:Answer): Ret = { //answer is just passed for environment information
+    a.get(s) match {
+      case Some(t) => t //copy the type from the environment
+      case None => WrongType("variable name:"+s+" could not be found in the enviroment: "+a)
     }
   }
 
-  //FIXME: we need the var name as well as them type after we added the tuple to the mapping
-  def absHead(ident:String, ty:Type): (Answer, Answer) = {
-    val ret = Answer(Map(ident -> ty), ty)
-    (ret, ret) //we should make this more polyvalent
+  def absHead(ident:String, ty:Type): (Ret, Answer) = {
+    (ty, Map(ident -> ty))
   }
 
-  def abs(a1:Answer, a2:Answer): Answer = {
-    //FIXME: is there an easier way to do this by making "Answer" a monad?
-    combine(a1, a2)
+  def abs(a1:Ret, a2:Ret): Ret = {
+    TypeFun(a1, a2)
   }
 
-  def abs(ident:String, ty:Type, ax:AnswerF): AnswerF = {
-    a =>
-      val body = ax(a.copy(env = a.env + (ident -> ty)))
-      body.copy(tpe = TypeFun(ty, body.tpe))
-  }
+//  def abs(ident:String, ty:Type, ax:AnswerF): AnswerF = {
+//    a =>
+//      val body = ax(a.copy(env = a.env + (ident -> ty)))
+//      body.copy(tpe = TypeFun(ty, body.tpe))
+//  }
 
-  def app(a1: Answer, a2: Answer): Answer = a1.tpe match {
+  def app(a1: Ret, a2: Ret): Ret = a1 match {
     case TypeFun(in, out) =>
-      if (in == a2.tpe) a2.copy(tpe = out) //correspond to type after function application
-      else a1.copy(tpe = WrongType("in application the type of the abstraction: "+a1.tpe+" does not take an arguemnt of type: "+a2.tpe))
-    case _ => a1.copy(tpe = WrongType("in application the first element is not a function: "+a1.tpe))
+      if (in == a2) out //correspond to type after function application
+      else WrongType("in application the type of the abstraction: "+a1+" does not take an arguemnt of type: "+a2)
+    case _ => WrongType("in application the first element is not a function: "+a1)
   }
 
-  def combine(a1: Answer, a2: Answer): Answer = (a1, a2) match {
-    case (_:WrongType, _) => a1.copy(env = a1.env ++ a2.env) //WrongTypes propagate!
-    case (_, _:WrongType) => a2.copy(env = a1.env ++ a2.env)
-    case _ => Answer(a1.env ++ a2.env, TypeFun(a1.tpe, a2.tpe)) //default action
-  }
+  def combine(a1: Answer, a2: Answer): Answer = a1 ++ a2 //TODOD: check for  name clashes?
 }
