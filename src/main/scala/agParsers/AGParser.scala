@@ -20,6 +20,8 @@ trait AGSig {
  * An partial implementation of a parser library to allow to compute semanic function over a parse tree at the same time as parsing
  */
 trait AGParsers extends StandardTokenParsers with AGSig {
+  case class PA[+T](t:T, a:Answer)
+  implicit def unpack[T](pa:PA[T]):T = pa.t //can this not be covariant?
 
   // type Answer is an abstract data type which can be configures to contain differnent environments needed to execute the semantic functions
   // is used instead of carrying around an additional type parameter
@@ -202,13 +204,13 @@ trait AGParsers extends StandardTokenParsers with AGSig {
      * @tparam U
      * @return
      */
-    def ~[U](that: => AGParser[U]) = AGParser[~[T, U]] {
+    def ~[U](that: => AGParser[U]) = AGParser[~[PA[T], PA[U]]] {
       case (ans, input: Input) =>
         this(ans, input) match {
-          case AGSuccess(result1, next1, _) =>
+          case AGSuccess(result1, next1, ans1) =>
             that(ans, next1) match { //use original Answer
-              case AGSuccess(result2, next2, _) =>
-                AGSuccess(new ~(result1, result2), next2, ans) //return original Answer
+              case AGSuccess(result2, next2, ans2) =>
+                AGSuccess(new ~(PA(result1, ans1), PA(result2, ans2)), next2, ans) //return original Answer
               case AGFailure(msg2, next2) =>
                 AGFailure(msg2, next2)
             }

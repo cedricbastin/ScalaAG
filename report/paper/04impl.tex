@@ -1,8 +1,8 @@
 \section{Design \& Interface}
-The implementation is based on top of the parser combinator library such that basic combinators can be reused and more advanced features such as token parsing do not need to be fully re-implemented. In our implementation we have augmented the parser combinators to include an environment which contains the attributes and can thus be read and augmented during the application of semantic functions.
+The implementation is based on top of the scala parser combinator library such that basic combinators can be reused and more advanced features such as token parsing do not need to be fully re-implemented. In our implementation we have augmented the parser combinators to include an environment which contains the attributes and can thus be read and augmented during the application of semantic functions.
 
 \subsection{AGSig}
-AGSignature describes the very general aspect of an abstract algebra, namely the abstract data type used to pass information between semantic functions. Also some general methods for specific Answer manipulations such as combination ca be defined here. As the framework was meant to be very generic we reduced the amount of those functions to the simple case of combination of 2 different Answers. Of course this abstract definition should be refined for each use case such that the 
+AGSignature describes the very general aspect of an abstract algebra, namely the abstract data type used to pass information between semantic functions as well as the signatures of the signature of the semantic function which are the specification of the attribute grammar. As the framework was meant to be very generic we reduced the amount of those functions to the simple case of combination of 2 different Answers. Of course this abstract definition should be refined for each use case such that domain specific function can be introduced.
 \begin{lstlisting}
 trait AGSig {
   type Answer
@@ -15,20 +15,21 @@ When the framework is used we suggest to decouple semantic functions from the pa
 \subsection{AGAlgebra}
 \begin{lstlisting}
 trait MyAlgebra extends AGSig {
-  type Answer = List[String] //environment
+  type Answer = List[String] //"environment", should contain the needed attributes
 
-  def start(tag:String, ps:List[Property], a:Answer):Answer = tag :: a
+  //the semantic functions are applied during a "map" call
+  def semantic1(tag:String, a:Answer):Type = tag :: a //answer reading semantic function
+  def semantic2(x:T):U //semantic function not affecting the answer
+}
 \end{lstlisting}
 
 \subsection{AGGrammar}
 \begin{lstlisting}
-trait HtmlGrammar extends AGParsers with HtmlSig {
-  lexical.delimiters ++= List("<", ">", "\\", """"""", "=")
-
-  def Start: AGParser[(String, List[Property])] = {
-    //(f: T => U, add:(Answer, U) => Answer)
-    lift(keyword("<")) ~> lift(ident) ~ rep(PropertyP) <~ lift(keyword(">")) >>^^>> {
-      case (tag ~ ps, a:Answer) => (start(tag, ps, a), (tag, ps))
+trait MyGrammar extends AGParsers with HtmlSig {
+ //parser definitions which might or might not modify the answer depending on the corresponding mapping function
+  def pars: AGParser[Type] = {
+    parsPartA <~ parsPartB >>^^ { //operator explained later on
+      case (a, ans) => semantic(a, ans)
     }
   }
 \end{lstlisting}
@@ -36,26 +37,25 @@ trait HtmlGrammar extends AGParsers with HtmlSig {
 As you can see the grammar immediately forwards the evaluation of the attributes to semantic functions of the algebra. 
 
 \subsection{issues}
-As the input for a parser is generally a linear structure we need to pipe the collected attributes collected in the *Answer* environment to the correct parser combinators. For instance when constructing an environment of all the parent nodes we want to make sure that the child nodes do not share the environment other than what comes from their common parent.
+As the input for a parser is generally a linear structure we need to pipe the collected attributes collected in the \textbf{Answer} environment to the correct parser combinators. For instance when constructing an environment of all the parent nodes we want to make sure that the child nodes do not share the environment other than what comes from their common parent.
 
 \begin{lstlisting}
 def Leaf:AGParser = ValueParser
 def Node:AGParser = Node ~ ValueParser ~ Node
 \end{lstlisting}
 
-We cannot simply propagate the environment from left to right as the collected values of the left hand side are not parents of the right hand side (we don't know actually). Thus we needed to a way to let the programmer express details about the structure being parsed and allow him to specify which and how the parser interrelate.
+We cannot simply propagate the environment from left to right as the collected values of the left hand side are not parents of the right hand side. Thus we needed to a way to let the programmer express details about the structure being parsed and allow him to specify how the parser interrelate. This can be done by mati
 
 With the use of semantic functions in a parser one can easily see that the added value over syntactic information also requires for more in depth validation techniques as more structural information is available and this extended validation can take place.
 
 \subsection{Implementation}
-Due to the added environment for attribute results which needs to be passed around between parser combinators and possibly used or augmented, the standard combinators need to be adapted for this use. The changes mostly influence the *sequence* and *map* combinators.
-We decided to use the double arrow notation *>>* to express whenever the environment is passed on between consecutive parsers and how the semantic functions applied in each step influence this Answer environment. 
+Due to the added environment for attributes which needs to be passed around between parser combinators and possibly used or augmented, the standard combinators need to be adapted for this use. The changes mostly influence the \verb/sequence/ and \verb/map/ combinators.
+We decided to use the double arrow notation \verb/>>/ to express whenever the environment is passed on between consecutive parsers and how the semantic functions applied in each step influence this Answer environment. The given notation is not to be confused with the \verb/~>/ \textbf{drop-right} combinator!
 
 \subsection{sequencing:  }
 % \verb/\>>~/  \verb/~>>/  \verb/\>>~>>/}
 As explained above the inputed of a parser if often unstructured and linear and thus requires the programmer to encode the hierarchy and scope of a specific combinator manually. 
 For instance the sequencing combinator can be used to combine 2 smaller parser, however each of those parser might potentially change the answer environment.
-The given notation is not to be confused with the `~>` *drop-right* combinator!
 % For instance the "flow" of the Answer object of the operator `parserA >>~>> parserB` can be symbolized by `parserA >> parserB >> ...` which means that the potentially updated environment flows both between the 2 parsers and it is also passed on to whatever follow then. On the contrary `parserA ~>> parserB` means that only the answer from the second parser will be used in consecutive parsers
 The full interaction can be expressed in a graph for and easy to understand illustration of how the different *answer piping* interrelate.
 \includegraphics[width=8cm]{ans_piping.png}Some confusion might occur due to the left associativity of parser combinators which makes some grouping implicit and tough to see which environment is actually piped where.
