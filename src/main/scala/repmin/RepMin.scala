@@ -12,22 +12,22 @@ case object Leaf extends Tree
 //example to show that parsing is from left to right and evaluation can be from right to left
 //parses a tree with integer values and return the tree
 trait RepMinSig extends AGSig {
-  type TreeF = Answer => Tree //unfold when minimum is found
+  type TreeF = InAttrs => Tree //unfold when minimum is found
 
-  def node(a1:TreeF, i:Answer, a2:TreeF):TreeF
+  def node(a1:TreeF, i:InAttrs, a2:TreeF):TreeF
   def leaf: TreeF
 
-  def toAns(s:String):Answer
+  def toAns(s:String):InAttrs
 }
 
 trait RepMinAlgebra extends RepMinSig {
-  type Answer = Int
+  type InAttrs = Int
 
-  def node(l:TreeF, a:Answer, r:TreeF): TreeF = {case i:Int => Node(l(i), i, r(i))} //unflod with minimum
+  def node(l:TreeF, a:InAttrs, r:TreeF): TreeF = {case i:Int => Node(l(i), i, r(i))} //unflod with minimum
   def leaf = {case _:Int => Leaf}
 
-  def toAns(s:String):Answer = s.toInt
-  def combine(a1:Answer, a2:Answer):Answer = if (a1 < a2) a1 else a2
+  def toAns(s:String):InAttrs = s.toInt
+  def combine(a1:InAttrs, a2:InAttrs):InAttrs = if (a1 < a2) a1 else a2
 }
 
 trait RepMinGrammar extends AGParsers with RepMinSig {
@@ -47,7 +47,7 @@ trait RepMinGrammar extends AGParsers with RepMinSig {
   def LeafP:AGParser[TreeF] = {
     lift("x") ^^^ leaf
   }
-  def ValP:AGParser[Answer] = {
+  def ValP:AGParser[InAttrs] = {
     lift(numericLit) >>^^>> {
       case (s, ans) =>
         val res = combine(ans, toAns(s)) //"add to environment"

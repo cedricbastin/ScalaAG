@@ -6,21 +6,21 @@ import agParsers._
  * A generic algebra which can be reused for different semantic implementations
  */
 trait StlcSig extends AGSig {
-  type Ret //return type //answer is passed around implicitly
-  def tru: Ret
-  def fals: Ret
+  type SynAttr //return type //answer is passed around implicitly
+  def tru: SynAttr
+  def fals: SynAttr
 
-  def num(s: String): Ret
-  def succ(a: Ret): Ret
-  def pred(a: Ret): Ret
-  def iszero(a: Ret): Ret
+  def num(s: String): SynAttr
+  def succ(a: SynAttr): SynAttr
+  def pred(a: SynAttr): SynAttr
+  def iszero(a: SynAttr): SynAttr
 
-  def iff(a1: Ret, a2: Ret, a3: Ret): Ret
+  def iff(a1: SynAttr, a2: SynAttr, a3: SynAttr): SynAttr
 
-  def vari(s:String, a:Answer): Ret
-  def absHead(ident:String, ty:Type): (Ret, Answer)
-  def abs(tp:Ret, a:Ret): Ret
+  def vari(s:String, a:InAttrs): SynAttr
+  def absHead(ident:String, ty:Type): (SynAttr, InAttrs)
+  def abs(tp:SynAttr, a:SynAttr): SynAttr
   //def abs(ident:String, ty:Type, a:AnswerF): AnswerF //use this with AnswerF
 
-  def app(a1: Ret, a2: Ret): Ret
+  def app(a1: SynAttr, a2: SynAttr): SynAttr
 }

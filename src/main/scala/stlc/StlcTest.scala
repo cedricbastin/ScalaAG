@@ -13,7 +13,7 @@ object TypingTest extends App {
       testString =>
         val tokens = new lexical.Scanner(testString)
         print(testString + " --> ")
-        val defans:Answer = new HashMap()
+        val defans:InAttrs = new HashMap()
 
         val parsed = Term(defans, tokens)
         parsed match {
@@ -31,7 +31,7 @@ object TypingTest extends App {
     def test(in:String, tpe:Type) = {
       print(in+"=> ")
       val tokens = new lexical.Scanner(in)
-      val initAns:Answer = new HashMap()
+      val initAns:InAttrs = new HashMap()
       val parsed = Term(initAns, tokens)
       parsed match {
         case AGSuccess(res, next, ans) =>
@@ -41,7 +41,7 @@ object TypingTest extends App {
           println("parsing failure: "+e)
       }
     }
- 
+
     def testAll() = {
       test("true", TypeBool)
       test("0", TypeNat)

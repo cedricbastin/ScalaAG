@@ -11,9 +11,9 @@ trait AGSig {
    * the user can define those environments/ attributes as he likes
    */
 
-  type Answer
-  type AnswerF = Answer => Answer //lazily computed environment
-  def combine(a1:Answer, a2:Answer):Answer
+  type InAttrs //inherited attributes
+  type AnswerF = InAttrs => InAttrs //lazily computed environment
+  def combine(a1:InAttrs, a2:InAttrs):InAttrs
 }
 
 /*
@@ -28,20 +28,20 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
   sealed abstract class AGParseResult[+T] // wrapper class for ParseResult[T] which cannot be extended
   object AGParseResult {
-    def apply[T](pr:ParseResult[T], ans:Answer) = pr match {
+    def apply[T](pr:ParseResult[T], ans:InAttrs) = pr match {
       case Success(result, next) => AGSuccess(result, next, ans)
       case Failure(msg, next) => AGFailure(msg, next)
     }
   }
   //TODO: class NoSuccess extends ParseResult, Failure extends NoSuccess, Error extends NoSuccess
-  case class AGSuccess[+T](result: T, next: Input, ans: Answer) extends AGParseResult[T] {
+  case class AGSuccess[+T](result: T, next: Input, ans: InAttrs) extends AGParseResult[T] {
     def check = {if (result == null) AGFailure("check failed", next)}
   }
   case class AGFailure(msg: String, next: Input) extends AGParseResult[Nothing]
 
   //T is independent from Answer but can be included as additional information in an Answer if needed
   // parser combinator methods arguments need to be call by name otherwise the stack will overflow
-  abstract class AGParser[+T] extends ((Answer, Input) => AGParseResult[T]) {
+  abstract class AGParser[+T] extends ((InAttrs, Input) => AGParseResult[T]) {
 
     def validatePrim(p: T => Boolean) = AGParser[T] { //this method should be usable combined with map etc...
       case (ans, input: Input) =>
@@ -54,7 +54,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    def validate(p: (T, Answer) => Boolean) = AGParser[T] { //this method should be usable combined with map etc...
+    def validate(p: (T, InAttrs) => Boolean) = AGParser[T] { //this method should be usable combined with map etc...
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, _) =>
@@ -99,7 +99,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    def mapWithAns[U](f: (T, Answer) => U) = AGParser[U] {
+    def mapWithAns[U](f: (T, InAttrs) => U) = AGParser[U] {
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
@@ -109,9 +109,9 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    def >>^^[U](f: (T, Answer) => U) = mapWithAns(f)
+    def >>^^[U](f: (T, InAttrs) => U) = mapWithAns(f)
 
-    def mapIntoAns[U](f: T => (U, Answer)) = AGParser[U] { //returned answer needs to be merged with previous one
+    def mapIntoAns[U](f: T => (U, InAttrs)) = AGParser[U] { //returned answer needs to be merged with previous one
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, _) => //should this new ans be used?
@@ -122,9 +122,9 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    def ^^>>[U](f: T => (U, Answer)) = mapIntoAns(f)
+    def ^^>>[U](f: T => (U, InAttrs)) = mapIntoAns(f)
 
-    def mapWithAnsIntoAns[U](f:(T, Answer) => (Answer, U)) = AGParser[U] {
+    def mapWithAnsIntoAns[U](f:(T, InAttrs) => (InAttrs, U)) = AGParser[U] {
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
@@ -135,7 +135,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    def >>^^>>[U](f: (T, Answer) => (Answer, U)) = mapWithAnsIntoAns(f)
+    def >>^^>>[U](f: (T, InAttrs) => (InAttrs, U)) = mapWithAnsIntoAns(f)
 
 //    def mapWithAnsIntoAns[U](f:(T, Answer) => U)(add:(Answer, U) => Answer) = {
 //      case (ans: Answer, input: Input) =>
@@ -175,7 +175,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     def >>[U](f: T => AGParser[U]) = flatMap(f)
     def into[U](f: T => AGParser[U]) = flatMap(f)
 
-    def flatMapWithAns[U](f: (T, Answer) => AGParser[U]) = AGParser[U] {
+    def flatMapWithAns[U](f: (T, InAttrs) => AGParser[U]) = AGParser[U] {
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
@@ -351,8 +351,8 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
   object AGParser {
     //companion object to build new parsers without the need for and "val outer = this" reference
-    def apply[V](f: (Answer, Input) => AGParseResult[V]) = new AGParser[V] {
-      def apply(ans: Answer, input: Input) = f(ans, input)
+    def apply[V](f: (InAttrs, Input) => AGParseResult[V]) = new AGParser[V] {
+      def apply(ans: InAttrs, input: Input) = f(ans, input)
     }
   }
 }

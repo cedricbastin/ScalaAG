@@ -16,9 +16,9 @@ rep => simply says “expect N-many repetitions of parser X” where X is the pa
 */
 
 trait HtmlSig extends AGSig {
-  def start(tag:String, ps:List[Property], a:Answer):Answer
-  def end(tag:String, a:Answer):(Boolean, Answer)
-  def validate(tag:String, a:Answer):Boolean
+  def start(tag:String, ps:List[Property], a:InAttrs):InAttrs
+  def end(tag:String, a:InAttrs):(Boolean, InAttrs)
+  def validate(tag:String, a:InAttrs):Boolean
   //def add(tag:String, a:Answer):Answer
 }
 
@@ -57,7 +57,7 @@ trait HtmlGrammar extends AGParsers with HtmlSig {
   def Start: AGParser[(String, List[Property])] = {
     //(f: T => U, add:(Answer, U) => Answer)
     lift(keyword("<")) ~> lift(ident) ~ rep(PropertyP) <~ lift(keyword(">")) >>^^>> {
-      case (tag ~ ps, a:Answer) => (start(tag, ps, a), (tag, ps))
+      case (tag ~ ps, a:InAttrs) => (start(tag, ps, a), (tag, ps))
     }
   }
 
@@ -84,18 +84,18 @@ trait HtmlGrammar extends AGParsers with HtmlSig {
 }
 
 trait HtmlAlgebra extends HtmlSig {
-  type Answer = List[String] //stack where we push and pop the head
+  type InAttrs = List[String] //stack where we push and pop the head
 
-  def start(tag:String, ps:List[Property], a:Answer) = tag :: a //return answer??
-  def end(tag:String, a:Answer) = a match {
+  def start(tag:String, ps:List[Property], a:InAttrs) = tag :: a //return answer??
+  def end(tag:String, a:InAttrs) = a match {
       case x :: xs if x == tag => (true, xs)
       case _ => (false, a)
     }
-  def validate(tag:String, a:Answer) = a match {
+  def validate(tag:String, a:InAttrs) = a match {
     case x :: xs if (x == tag) => true
     case _ => false
   }
-  def combine(a1:Answer, a2: Answer) = a1 ::: a2
+  def combine(a1:InAttrs, a2: InAttrs) = a1 ::: a2
 }
 
 class HtmlTest extends HtmlGrammar with HtmlAlgebra {

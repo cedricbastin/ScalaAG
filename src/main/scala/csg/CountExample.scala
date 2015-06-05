@@ -7,10 +7,10 @@ import agParsers._
  */
 
 trait CountSig extends AGSig {
-  trait Answer
-  case class Env(max:Int, count:Int, c:Char) extends Answer
-  case object Fail extends Answer
-  def combine(a1:Answer, a2:Answer) = {
+  trait InAttrs
+  case class Env(max:Int, count:Int, c:Char) extends InAttrs
+  case object Fail extends InAttrs
+  def combine(a1:InAttrs, a2:InAttrs) = {
     a1 //useless?
   }
   //def next(a:Answer): Answer
@@ -20,7 +20,7 @@ trait CountGrammar extends AGParsers with CountSig {
   //lexical.delimiters ++= List("(", ")", "\\", ".", ":", "=", "->", "{", "}", ",", "*", "+")
   lexical.reserved ++= List("a", "b", "c")
 
-  def Next: AGParser[Answer] = {
+  def Next: AGParser[InAttrs] = {
     rep(lift("a")) ~>> lift("b") ~>> lift("c") ^^ {
       case a ~ b ~ c => Env(1,2,'c')
     }
