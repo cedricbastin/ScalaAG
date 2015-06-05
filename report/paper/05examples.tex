@@ -1,76 +1,85 @@
 \section{Examples}
-The use of the framework is best illustrated by concrete examples which explain the use of the \verb/Answer/ environment. We will show several examples to explain the use of AGParser as collector and transformer over parse trees.
+The use of the framework is best illustrated by concrete examples which explain the use of the \verb/AttrEnv/ environment. We will show several examples to explain the use of AGParser as collector and transformer over parse trees.
 
 \subsection{Typing}
 Calculating the type of an expression is a typical case of a transformation which will return different information of a syntactic tree than what's given at the input.
 
-Note that the given code only focuses on the details of the environment treatment, other important details were left out, please check out the code on github for the full implementation.
+Note that the given code only focuses on the details related to environment treatment, other important details were left out in this report, please check out the code on github for the full implementation.
 
-The abstract signature just contains the signatures of the possible semantic function and their abstract return type representing an attribute.
+The \verb/AGSig/ just contains the abstract signatures of the semantic function and their return type representing an attribute or augmented attribute environment.
 \begin{lstlisting}
 trait StlcSig extends AGSig {
-  def vari(s:String, a:Answer): Answer
-  def absHead(ident:String, ty:Type): Answer
-  def abs(tp:Answer, a:Answer): Answer
+  def vari(s:String, a:AttrEnv): Attr
+  def absHead(ident:String, ty:Type): (Attr, AttrEnv)
+  def abs(tp:Attr, a:Attr): Attr
 }
 \end{lstlisting}
 
-When looking at the parsers we just consider the interesting cases where the environment variables names and their corresponding types is either augmented or read. We can see that the \verb/abstraction/ parser had to be split into 2 parts such that the first parser is responsible of augmenting the environment before handing it over to the next parser.
-We can see that we have to use the \verb/mapWithAns/ to type a variable using the existing environment and \verb/mapIntoAns/ to augment the existing environment to include a new variable-type mapping.
+When looking at the parsers we just consider the interesting cases where the environment of variables names - type mapping is either modified or read. We can see that the \verb/abstraction/ parser had to be split into 2 parts such that the first parser is responsible to create the attributed needed by the following parser before being passed on.
+We can see that we have to use the \verb/mapWithAns/ to type a variable using the existing environment and \verb/mapIntoAns/ to augment the environment to include a new variable-type mapping.
 
 \begin{lstlisting}
 trait StlcGrammar extends AGParsers with StlcSig {
-  def AbsHead: AGParser[Answer] = {
-    lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>>[Answer] ({
+  def AbsHead: AGParser[Attr] = {
+    lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>> {
       case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
-    }, combine)
+    }
   }
 
-  def SimpleTerm: AGParser[Answer] = {
+ def SimpleTerm: AGParser[Attr] = {
     ...
-      | AbsHead >>~ Term ^^ { //pipe augmented answer with environment
+
+    } | lift(ident) >>^^ {
+      case (x, a) => vari(x, a) //we need the environment to determine the type
+    } | AbsHead >>~ Term ^^ { //pipe augmented attribute environment
       case head ~ term =>
         abs(head, term)
-    } | lift(failure("illegal start of simple term"))
+    }
   }
 }
 \end{lstlisting}
 
-In the concrete algebra we can see the corresponding semantic functions which are use to either augment the environment or extract information from it.
+In the concrete algebra we can see the corresponding semantic functions which are used to either augment the environment or extract information from it.
 
 \begin{lstlisting}
 trait SltcTypingAlgebra extends StlcSig {
-  type Env = Map[String, Type]
-  case class Answer(env: Env, tpe: Type)
+  type AttrEnv =  Map[String, Type]
+  type Attr = Type
 
-  def vari(s:String, a:Answer): Answer = {
-    a.env.get(s) match {
-      case Some(t) => a.copy(tpe = t) //copy the type from the environment
-      case None => a.copy(tpe = WrongType("could not be found"))
+  def vari(s:String, a:AttrEnv): Attr = { //answer is just passed for environment information
+    a.get(s) match {
+      case Some(t) => t //copy the type from the environment
+      case None => WrongType("variable name:"+s+" could not be found in the enviroment: "+a)
     }
   }
 
-  def absHead(ident:String, ty:Type): Answer = {
-    Answer(Map(ident -> ty), ty) //use combine operator to fuse two answers 
+  def absHead(ident:String, ty:Type): (Attr, AttrEnv) = {
+    (ty, Map(ident -> ty))
   }
 
-  def abs(a1:Answer, a2:Answer): Answer = {
-    combine(a1, a2)
+  def abs(a1:Attr, a2:Attr): Attr = {
+    TypeFun(a1, a2)
   }
 }
 \end{lstlisting}
 
 \subsection{RepMin}
-Repmin is a famous example where, with a tree given as input we want to create a tree of the same shape where each value in the nodes corresponds to the global minimum. 
-We use it as a prime example to show that the result of the semantic functions can be pipelined through the tree. We think that it is an interesting example which shows that attributes can be used anywhere in the tree and that the constructed can be substantially different from the original object without ever constructing an intermediate representation.
-This example was implemented on a tree of integers. In the given example the only attribute we need to keep track of is the minimum value found so far which converges to the global minimum. As the global minimum is not immediately available we cannot reconstruct the corresponding nodes based on local information. Due to this constraint we build a higher order semantic functions to return itself a function which will construct the final tree only once the minimum value is found. This creates some kind of call-back tree similar to continuation passing style where the  returned value is a function which needs to be fed with the global minimum. Once the whole tree as been read we also have found the global and can thus evaluate the call stack to build the final tree.
+Repmin is a famous example where, with a tree given as input we want to create a tree of the same shape where each node value is replaced by the global minimum value. 
+We use it as a prime example to show that the result of the semantic functions can be pipelined through the tree. We think that it is an interesting example which shows that attributes can be used anywhere in the tree and that the created structure can be substantially different from the original object without ever constructing an intermediate representation.
+This example was implemented on a tree of integers. In the given example the only attribute we need to keep track of is the minimum value found so far which converges to the global minimum. As this minimum is not immediately available we cannot reconstruct the corresponding nodes immediately based on local information. Due to this constraint we return a higher order semantic functions which will construct the final tree only once the minimum value is found. This creates some kind of call-back tree similar to continuation passing style where the  returned value is a function which needs to be fed with the global minimum. Once the whole tree as been read we also have found the global minimum and can thus evaluate the call stack to build the final tree.
+
+\begin{lstlisting}
+sealed trait Tree
+case class Node(l:Tree, v:Int, r:Tree) extends Tree
+case object Leaf extends Tree
+\end{lstlisting}
 
 \begin{lstlisting}
 trait RepMinSig extends AGSig {
-  type TreeF = Answer => Tree //evaluate only when minimum is found
-
-  def node(a1:TreeF, i:Answer, a2:TreeF):TreeF
-  def leaf: TreeF
+  type Attr = AttrEnv => Tree //eval when minimum is found
+  
+  def node(a1:Attr, i:AttrEnv, a2:Attr):Attr
+  def leaf: Attr
 }
 \end{lstlisting}
 
@@ -78,41 +87,116 @@ The signature gives an abstract high level definition of the computation one mig
 
 \begin{lstlisting}
 trait RepMinGrammar extends AGParsers with RepMinSig {
-  def Root:AGParser[Tree] = {
-    TreeP >>^^ {case (t, ans) => t(ans)} | //fully evaluate at the end!
+  lexical.delimiters ++= List("(", ")")
+  lexical.reserved ++= List("x") //leaves
+
+  def Root:AGParser[Tree] = { //fully evaluate at the end!
+    TreeP >>^^ {case (t, ans) => t(ans)} |
       lift(failure("tree not parsable!"))
   }
-  def TreeP:AGParser[TreeF] = {NodeP | LeafP}
-  def NodeP:AGParser[TreeF] = {
+  def TreeP:AGParser[Attr] = {NodeP | LeafP}
+  def NodeP:AGParser[Attr] = {
     lift("(") >>~>> TreeP >>~>> ValP >>~>> TreeP >>~>> lift(")") >>^^>> {
-      case (s1 ~ a1 ~ a ~ a2 ~ s2, ans) => (combine(ans, a), node(a1, a, a2))
+      case (s1 ~ a1 ~ a ~ a2 ~ s2, ans) => (ans, node(a1, a, a2))
     }
   }
-  def LeafP:AGParser[TreeF] = {
+  def LeafP:AGParser[Attr] = {
     lift("x") ^^^ leaf
   }
-  def ValP:AGParser[Answer] = {
-    lift(numericLit) >>^^>> {
-      case (s, ans) =>
-        val res = combine(ans, toAns(s)) //"add to environment"
-        (res, res) //return value of the parser is not important
+  def ValP:AGParser[AttrEnv] = {
+    lift(numericLit) ^^>> {
+      case s =>
+        def ans = toAns(s)
+        (ans, ans)
     }
   }
+}
 \end{lstlisting}
 As you can see the root parser is used to capture the final answer and use it to evaluate the constructed function which will yield as a result a tree of the same shape as the original one with each value replaced with the minimum.
 
 \begin{lstlisting}
 trait RepMinAlgebra extends RepMinSig {
-  type Answer = Int
+  type AttrEnv = Int
 
-  def node(l:TreeF, a:Answer, r:TreeF): TreeF = {case i:Int => Node(l(i), i, r(i))}
+  def node(l:Attr, a:AttrEnv, r:Attr): Attr = {case i:Int => Node(l(i), i, r(i))}
   def leaf = {case _:Int => Leaf}
 
-  def combine(a1:Answer, a2:Answer):Answer = if (a1 < a2) a1 else a2
+  def combine(a1:AttrEnv, a2:AttrEnv):AttrEnv = if (a1 < a2) a1 else a2
 }
 \end{lstlisting}
 
-As described earlier an important use case would be a parser for xml which would be able to extract specific content from a document and also validate that matching opening and closing tags exist. This can already be achieved using flatMap or even the simple sequencing parser however we tried to take a different approach namely to stack the the opening tags and de-stack them whenever we find the corresponding closing tags, this helps us to avoid growing a too large call stack and keep a simple environment instead.
+\subsection{Xml collector}
+As described earlier an important use case would be an xml parser which would be able to extract specific content from a document and also validate that opening and closing tags match. This can already be achieved using flatMap or even the simple sequencing parser however we tried to take a different approach namely to stack the the opening tags and de-stack them whenever we find the corresponding closing tags, this helps us to avoid growing a too large call stack and keep a simple environment instead.
 
-\subsection{Html}
-TODO
+\begin{lstlisting}
+trait HtmlSig extends AGSig {
+  def defAttr:Attr //default attribute
+  def start(tag:String):(Attr, AttrEnv)
+  def end(tag:String, a:AttrEnv):(AttrEnv, Attr)
+  def validate(tag:String, a:AttrEnv):Boolean
+  def validateFull(syn:List[Attr], in:AttrEnv):Boolean
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+trait HtmlAlgebra extends HtmlSig {
+  type Attr = Unit
+  type AttrEnv = List[Either[String, Container]] //stack where we push and pop the head
+  val defAttr = ()
+
+  def start(tag:String):(Attr, AttrEnv) = ((), Left(tag) :: Nil) //push stuff to head
+
+  def end(tag:String, a:AttrEnv):(AttrEnv, Attr) = {
+    val (conts:List[Right[String, Container]], tags) =
+      a span {case Right(_) => true case _ => false} //collect all containers
+      tags match {
+        case Left(s) :: xs =>
+          assert(s == tag)
+          val nx:Either[String, Container] = Right(Container(tag, conts.map{ case Right(c) => c}))
+          (nx :: xs, ())
+      }
+    }
+
+  def validate(tag:String, a:AttrEnv) = a.find{case Left(_) => true case _ => false} match {
+    case Some(Left(t)) => tag == t //matching open and closing tags
+    case _ => false
+  }
+
+  def validateFull(syn:List[Attr], in:AttrEnv):Boolean = in match {
+    case Right(c) :: Nil => true
+    case _ => false
+  }
+
+  def combine(old:AttrEnv, niew: AttrEnv) = niew ::: old //TODO: is this a good idea?, when to use it?
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+trait HtmlGrammar extends AGParsers with HtmlSig {
+  lexical.delimiters ++= List("<", ">", "\\", """"""", "=")
+
+  def HtmlP:AGParser[Attr] = {
+    (repWithAns(End | Start) validate {
+      case (list, inAttrs) => validateFull(list, inAttrs)
+    }) >>^^>> { (x, ans) => (ans, defAttr) }
+  }
+
+  def Start: AGParser[Attr] = {
+    lift(keyword("<")) ~> lift(ident) <~ lift(keyword(">")) ^^>> {
+      case tag => start(tag)
+    }
+  }
+
+  def End: AGParser[Attr] = {
+    (lift("<") ~> lift("\\") ~> lift(ident) <~ lift(">") validate {
+      case (s, ans) =>
+        validate(s, ans)
+    }) >>^^>> {
+      case (tag, ans) => end(tag, ans)
+    }
+  }
+}
+\end{lstlisting}
+
+The interesting part in this example is that we rather build a recognizer than a parser. By using \verb/repWithAns(End | Start)/ we rather build a recognizer such that the parser call stack cannot blow up.
+This could for example be used to extract only specific parts of an xml documents (for example all the image tags) and throwing the other information away without even building their full parse structure in the first place.

@@ -1,8 +1,8 @@
 \section{Background}
 \subsection{Attribute Grammars}
-Attribute grammars were introduced by Donald Knuth in 1967. They formalize the a set of attributes over a formal grammar such that each production rule can have one or more attributes associated to it. Thus an attribute grammar is defined over the nodes of an abstract syntax tree such that they can be transformed into a corresponding value. Most those attributes are not simple local transformations but need extended knowledge of a larger subset of the parse tree.
+Attribute grammars were introduced by Donald Knuth in 1967. They formalize a set of attributes over a formal grammar such that each production rule can have one or more attributes associated with it. Thus an attribute grammar is defined over the nodes of an abstract syntax tree such that they can be transformed into a corresponding value. Most those attributes are not simple local transformations but need extended knowledge of a larger subset of the parse tree.
 
-There are 2 different kinds of attributes, the synthesized and inherited attributes. As the name suggest the inherited attributes are used to pass semantic information to the child branches of a node and synthesized attributes are used to pass semantic information up in the parse tree. As parsers are generally constructing a tree structure from a linear input they have to work left-to-right fashion and thus some of the needed information might potentially be unavailable at the time of the parsing of a node. Lazy evaluation in functional programming can be used to overcome these restrictions as long as no cyclic dependencies between then attribute dependencies occur.
+There are two different kinds of attributes, synthesized and inherited attributes. As their name suggest the inherited attributes are used to pass semantic information to the branches of a node and synthesized attributes are used to pass semantic information up in the parse tree. As parsers are generally constructing a tree structure from a linear input they have to work left-to-right fashion and thus some of the needed information might potentially be unavailable at the time of the parsing of a node. Lazy evaluation in functional programming can be used to overcome these restrictions as long as no cyclic dependencies between then attribute dependencies occur.
 
 Here are some examples of attributes grammars.
 In this example the attribute \verb/value/ is used to evaluate the expressions on the fly during parsing:
@@ -10,7 +10,7 @@ In this example the attribute \verb/value/ is used to evaluate the expressions o
 Expr1 -> Expr2 + Term     [ Expr1.value = Expr2.value + Term.value ]
 Expr -> Term              [ Expr.value = Term.value ]
 \end{verbatim}
-Another example would be the deapth in the tree of each node:
+Another example would be to calculate the depth of each node in the tree which is an inherited attribute:
 \begin{verbatim}
 Node -> NodeL Value NodeR [ NodeL.depth = Node.depth + 1 ... ] 
 Node -> Leaf              [ Leaf.depth = Node.depth + 1 ]
@@ -18,32 +18,33 @@ Node -> Leaf              [ Leaf.depth = Node.depth + 1 ]
 
 Furthermore as the syntactic definition of a formal grammar might be more permissive than the actual language it is related to, an attribute grammar could be used to validate the parsed content and provide an additional wrapping mechanism for parse results. 
 
-As the attributes are an abstract way of decorating the abstract syntax tree one can easily decouple the attribute rules from the grammar such that a different attribute grammar can be used over the same formal grammar providing different computations over a parse tree without the need to rewrite the grammar nor adapt the other attribute functions.
+As the attributes are an abstract way of decorating the abstract syntax tree one can easily decouple the attribute rules from the grammar such that a different attribute grammar can be used over the same formal grammar providing different computations without the need to rewrite the grammar nor to adapt the other attribute functions.
 
 \subsection{Monads}
 A monad in functional programming represents an encapsulated computation and its result such that it can be composed or pipelined with other monads. Monads are used to abstract over the side effects of a computation and avoid mutation. A Monad only consists of a type constructor as well as 2 operations namely \verb/unit/ and \verb/bind/ following the monadic laws of associativity and left/right identity. Those semantics allow monads to be easily composable and allow a large array of manipulations. The operations on a monad can access and modify or augment its content during a \textbf{map} call without giving up it's external type structure thus providing for example nested failure safety.
  
-Monads can also be used for parsing as they allo easy composition of monadic parses. In general the use of parser combinators would lead to a nested structure of tuples of parse result which could either be a success or a failure. To avoid those nested structured and repetitive checks one can use a monad which would automatically cascade a parse failure without explicit handling or checking at each "level".\\
-$type\, M\, a = String \rightarrow [(a, String)]$\\
+Monads can also be used for parsing as they allow easy composition of monadic parses. In general the use of parser combinators would lead to a nested structure of tuples of parse result which could either be a success or a failure. To avoid those nested structured and repetitive checks one can use a monad which would automatically cascade a parsing failure without explicit handling or checking at each nested level.\\
+parsing monad: $type\, M\, a = String \rightarrow [(a, String)]$\\
 The same technique has been used by the scala parser combinators which also use the monadic style for composition and result handling.
 
 Monads can also be used to encapsulate state such that the programmer can include state information within each computed result, in non-functional programming this would represent information stored in variables which are not part of the parameters of a functions and thus need to be mutable.\\
-$unit: T \rightarrow S \rightarrow T \times S $\\
-Another related example is the reader monad (also called environment monad) which allows the pipelined monads to share an environment which they can read from and augment with new elements.\\
-$unit: T \rightarrow E \rightarrow T $\\
-for instance the result of reader together with the input still left to read. This has been described in the paper "Monads for functional programming"\cite{monads} by Philip Wadler. In general the state monad can carry any intermediate result of a partially applied evaluation whereas the reader contains individual collected result such as an environment of things encountered during a computation
+state monad: $unit: T \rightarrow S \rightarrow T \times S $\\
+Another related example is the reader monad (also called environment monad) which allows pipelined monads to share an environment which they can read from and augment with new elements.\\
+reader monad: $unit: T \rightarrow E \rightarrow T $\\
+This has been described in the paper "Monads for functional programming"\cite{monads} by Philip Wadler. In general the state monad can carry any intermediate result of a partially applied evaluation whereas the reader contains individual collected result such as an environment of things encountered during a computation
 
-For the creation of the augmented parser combinator framework some influence was taken from monad transformers which are type constructors which can combine 2 monads. This allows to compose monads in order to get a new monadic structure combining the features of the underlying ones. For instance the reader monad transformer:\\
+For the creation of the augmented parser combinator framework some influence was taken from monad transformers which are type constructors which can combine and encapsulate 2 monads. This allows to compose monads in order to get a new monadic structure combining the features of the underlying ones. For instance the reader monad transformer\\
 $unit: A \rightarrow E \rightarrow M A $\\
-It takes an environment and some other monad as input and apply the reader transformation to the content of the monad given as argument while maintaining the outer layer of the same type.  
+takes an environment and some other monad as input and apply the reader transformation to the content of the monad given as argument while maintaining the outer layer of the same type.  
 
 \subsection{Parser combinators}
-Compared to the clumsy parser generator tools which generate parser from a context free grammar, Scala took inspiration from Haskell and its parser combinators. Parser generators are a library DSL which can be used for compositional parsing using smaller building blocks.
-Since Scala 2.11 they have been factored out of the scala language into a separate library which can be used in your projects by including them with sbt://
-\begin{verbatim}libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"\end{verbatim}//
-There are a set of combinator which can be used to create composed parser such as the sequential composition combinator \begin{verbatim}parserA ~ parserB\end{verbatim} which will return a ParseResult of both \verb/parserA/ and \verb/parserB/ concatenated (in a \begin{verbatim}~(a:A, b:B)\end{verbatim} object). It is easy to do pattern matching on those results as a syntactically sugared infix notation is available: a ~ b
+Compared to the clumsy parser generator tools which generate parser from a context free grammar, Scala took inspiration from Haskell and its parser combinators. Parser combinators are a library DSL which can be used for compositional parsing using smaller building blocks.
+Since Scala 2.11 they have been factored out of the scala language into a separate library which can be used in your projects by including them with sbt:
+\begin{verbatim}libraryDependencies += "org.scala-lang.modules" %%
+	"scala-parser-combinators" % "1.0.4"\end{verbatim}
+There are a set of combinator which can be used to create composed parser such as the sequential composition combinator $parserA \sim parserB$ which will return a ParseResult of both \verb/parserA/ and \verb/parserB/ concatenated (in a $\sim (a:A, b:B)$ object). It is easy to do pattern matching on those results as a syntactically sugared infix notation is available: $a \sim b$
 
 \subsection{flatMap and context sensitive parsing}
 One important parser combinator is the \verb/flatMap/ combinator, also called \verb/into/:
 \begin{verbatim}def >>[U](fq: T => Parser[U]) = into(fq) = flatMap(fq)\end{verbatim}
-This combinator helps to overcome some limitations of traditional parsers described earlier, namely it allows local context sensitivity during parsing. For instance does this method allow to extract the \begin{verbatim}message length\end{verbatim} information form a message header such that the body parser knows when to stop reading input. Another example would be a message dispatcher which would switch to use a different body parser implementation depending on the message type described in the header. Even though this is a very useful feature the scope is limited and thus it would be nice to have a way to propagate information through he full tree.
+This combinator helps to overcome some limitations of traditional parsers, namely it allows local context sensitivity during parsing. For instance does this method allow to extract the \verb/message/ \verb/length/ information form a message header such that the body parser knows when to stop reading input. Another example would be a message dispatcher which would switch to use a different body parser implementation depending on the message type described in the header. Even though this is a very useful feature the scope is limited and thus it would be nice to have a way to propagate information implicitly through he full tree.

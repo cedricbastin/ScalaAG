@@ -1,4 +1,3 @@
-% "define" Scala
 \lstdefinelanguage{scala}{
   morekeywords={abstract,case,catch,class,def,%
     do,else,extends,false,final,finally,%
@@ -18,33 +17,32 @@
 }
 
 % Default settings for code listings
-% \lstset{language=scala,showstringspaces=false,columns=flexible, basicstyle=\footnotesize \ttfamily}
+%\lstset{language=scala,showstringspaces=false,columns=flexible, basicstyle=\footnotesize \ttfamily}
 % \definecolor{ggray}{gray}{0.5}
-% \renewcommand{\ttdefault}{pcr}
+\renewcommand{\ttdefault}{pcr}
 \lstset{
-  % frame=tb,
   language=scala,
-%   aboveskip=3mm,
-%   belowskip=3mm,
-%   showstringspaces=false,
-%   columns=flexible,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
   basicstyle={\footnotesize \ttfamily},
-%   %basicstyle=\LSTfont,
-% %% numbers:
-% %  numbers=none,
-%   numbers=left,
-%   %xleftmargin=2em,
-%   %framexleftmargin=1.5em,
-% %%% end numbers
-%   numberstyle=\tiny\color{gray},
+  %basicstyle=\LSTfont,
+%% numbers:
+%  numbers=none,
+  % numbers=left,
+  %xleftmargin=2em,
+  %framexleftmargin=1.5em,
+%%% end numbers
+  % numberstyle=\tiny\color{gray},
   keywordstyle=\bfseries,
-  % commentstyle=\em\color{ggray},
+  % commentstyle=\em\color{gray},
   stringstyle=\em,
-% %  keywordstyle=\color{blue},
-% %  commentstyle=\color{OliveGreen},
-% %  stringstyle=\color{Purple},
-%   frame=single,
-%   breaklines=true,
-%   breakatwhitespace=true
-  tabsize=4
+%  keywordstyle=\color{blue},
+%  commentstyle=\color{OliveGreen},
+%  stringstyle=\color{Purple},
+  frame=single,
+  breaklines=true,
+  breakatwhitespace=true
+  tabsize=3
 }

@@ -1,103 +1,99 @@
 \section{Design \& Interface}
-The implementation is based on top of the scala parser combinator library such that basic combinators can be reused and more advanced features such as token parsing do not need to be fully re-implemented. In our implementation we have augmented the parser combinators to include an environment which contains the attributes and can thus be read and augmented during the application of semantic functions.
+The implementation of the \verb/AGParsers/ framework is based on top of the scala parser combinator library such that basic combinators can be reused and more advanced features such as token parsing do not need to be fully re-implemented. In our implementation we have augmented the parser combinators to include an environment which contains the attributes and can thus be read and augmented during the application of semantic functions.
 
 \subsection{AGSig}
-AGSignature describes the very general aspect of an abstract algebra, namely the abstract data type used to pass information between semantic functions as well as the signatures of the signature of the semantic function which are the specification of the attribute grammar. As the framework was meant to be very generic we reduced the amount of those functions to the simple case of combination of 2 different Answers. Of course this abstract definition should be refined for each use case such that domain specific function can be introduced.
+\verb/AGSig/ describes the very general aspect of an abstract algebra, namely the abstract data types used to pass information between semantic functions as well as the signatures of the semantic function which are the specification of the attribute grammar. As the framework was meant to be very generic we reduced the amount of those functions to the simple case of combination of 2 different attribute environments using \verb/combine/. Of course this abstract definition should be refined for each use case such that domain specific function can be introduced.
 \begin{lstlisting}
 trait AGSig {
-  type Answer
-  def combine(a1:Answer, a2:Answer):Answer
+  type AttrEnv //inherited attributes
+  type Attr //synthezised attributes
+  def combine(a1:AttrEnv, a2:AttrEnv):AttrEnv
+  //other abstract semantic function definitions
 }
 \end{lstlisting}
 
-When the framework is used we suggest to decouple semantic functions from the parsing grammar. This can be useful when a different set of attributes need to be used for different applications and we want to avoid copy-pasting the code of the grammar itself. 
+When the framework is used we suggest to decouple semantic functions from the parsing grammar. This is useful when a different set of attributes need to be used for different applications and we want to avoid copy-pasting the code of the grammar itself. 
 
 \subsection{AGAlgebra}
 \begin{lstlisting}
 trait MyAlgebra extends AGSig {
-  type Answer = List[String] //"environment", should contain the needed attributes
+  type AttrEnv =  List[String, Attr] //for example
 
-  //the semantic functions are applied during a "map" call
-  def semantic1(tag:String, a:Answer):Type = tag :: a //answer reading semantic function
-  def semantic2(x:T):U //semantic function not affecting the answer
+  def semantic0(a1:Attr, a2:Attr):Attr //simple semantic transformation
+  def semantic1(tag:String, a:AttrEnv):Attr = tag :: a //env. reading semantic function
+  def semantic2(a1:Attr, a2:Attr, ae:AttrEnv):(Attr, AttrEnv) //semantic function also updating the environment
 }
 \end{lstlisting}
 
 \subsection{AGGrammar}
 \begin{lstlisting}
-trait MyGrammar extends AGParsers with HtmlSig {
- //parser definitions which might or might not modify the answer depending on the corresponding mapping function
-  def pars: AGParser[Type] = {
-    parsPartA <~ parsPartB >>^^ { //operator explained later on
-      case (a, ans) => semantic(a, ans)
+trait MyGrammar extends AGParsers with MySig {
+  def pars: AGParser[Attr] = {
+    parsA ~ parsB >>^^>> { //operator explained later on
+      case (a ~ b, ans) => semantic2(a, b, ans)
     }
   }
 \end{lstlisting}
 
 As you can see the grammar immediately forwards the evaluation of the attributes to semantic functions of the algebra. 
 
-\subsection{issues}
-As the input for a parser is generally a linear structure we need to pipe the collected attributes collected in the \textbf{Answer} environment to the correct parser combinators. For instance when constructing an environment of all the parent nodes we want to make sure that the child nodes do not share the environment other than what comes from their common parent.
+\subsection{Issues}
+As the input for a parser is generally a linear structure we need to pipe the collected attributes collected in the \textbf{AttrEnv} environment to the correct parser combinators. For instance when constructing an environment of the parent nodes we want to make sure that the child nodes do not share the environment other than what comes from their parent and not their siblings.
 
 \begin{lstlisting}
 def Leaf:AGParser = ValueParser
 def Node:AGParser = Node ~ ValueParser ~ Node
 \end{lstlisting}
 
-We cannot simply propagate the environment from left to right as the collected values of the left hand side are not parents of the right hand side. Thus we needed to a way to let the programmer express details about the structure being parsed and allow him to specify how the parser interrelate. This can be done by mati
+We cannot simply propagate the environment from left to right as the collected values of the left hand side are not parents of the right hand side. Thus we needed to a way to let the programmer express details about the structure being parsed and allow him to specify how the parser interrelate.
 
 With the use of semantic functions in a parser one can easily see that the added value over syntactic information also requires for more in depth validation techniques as more structural information is available and this extended validation can take place.
 
 \subsection{Implementation}
 Due to the added environment for attributes which needs to be passed around between parser combinators and possibly used or augmented, the standard combinators need to be adapted for this use. The changes mostly influence the \verb/sequence/ and \verb/map/ combinators.
-We decided to use the double arrow notation \verb/>>/ to express whenever the environment is passed on between consecutive parsers and how the semantic functions applied in each step influence this Answer environment. The given notation is not to be confused with the \verb/~>/ \textbf{drop-right} combinator!
+We decided to use the double arrow notation \verb/>>/ to express whenever the environment is passed between consecutive parsers and how the semantic functions applied in each step influence this attribute environment. The given notation is not to be confused with the $\sim >$ \textbf{drop-right} combinator!
 
-\subsection{sequencing}
-operations:\\
-sequence: \verb/~/ \\
-pipe ans1: \verb/>>~/ \\
-pipe ans2: \verb/~>>/ \\
-pipe ans1 and ans2: \verb/>>~>>/ \\
+\subsection{Sequencing $\sim$, $>>\sim$, $\sim >>$, $>> \sim >>$}
 
 As explained above the inputed of a parser is often unstructured and linear and thus requires the programmer to encode the hierarchy and scope of a specific combinator manually. 
-For instance the sequencing combinator can be used to combine 2 smaller parser, however each of those parser might potentially change the answer environment.
-For instance the "flow" of the Answer object of the operator \verb/parserA/ \verb/>>~>>/ \verb/parserB/ which means it is also passed on to whatever follow them. On the contrary `parserA ~>> parserB` means that only the answer from the second parser will be used in consecutive parsers
+For instance the sequencing combinator can be used to combine 2 smaller parser, however each of those parser might potentially change the attribute environment.
+For instance the "flow" of the \verb/AttrEnv/ object of the operator \verb/parserA/ \verb/>>~>>/ \verb/parserB/ which means it is also passed on to whatever follow them. On the contrary `parserA ~>> parserB` means that only the answer from the second parser will be used in consecutive parsers
 The full interaction can be expressed in a graph for and easy to understand illustration of how the different \textbf{answer piping} interrelate.
-
-\includegraphics[width=8cm]{ans_piping.png}
-
+\begin{flushleft}
+\centerline{\includegraphics[width=8cm]{ans_piping.png}}
+\end{flushleft}
 Some confusion might occur due to the left associativity of parser combinators which makes some grouping implicit and tough to see which environment is actually piped where.
-The programmer might need to use parentheses in order to keep the environment in the correct scope and make his attempt more clear. For instance in the case \verb/parserA/ \verb/~/ \verb/parserB/ \verb/~/ \verb/parserC/, if only the environment of \verb/parserA/ should be used in the consecutive parser we need to write: \verb/parserA/ \verb/>>~/ \verb/(/ \verb/parserB/ \verb/~/ \verb/parserC/ \verb/)/ those cases should however be borderline cases.
+The programmer might need to use parentheses in order to keep the environment in the correct scope and make his attempt more clear. For instance in the case $parserA \sim parserB \sim parserC$, if only the environment of $parserA$ should be used in the consecutive parsers, we need to write: $parser >>\sim ( parserB \sim parserC )$ as $parser >>\sim parserB \sim parserC$ would not bring the new environment all the way to $parserC$.
 
-\subsection{mapping}
+\subsection{Mapping}
 The mapping function has similar cases than the sequencing thus the signatures look familiar:
 \begin{lstlisting}
 def ^^[U](f: T => U):AGParseResult[U] =
   map(f)
-def >>^^[U](f: (T, Answer) => U):AGParseResult[U] =
+def >>^^[U](f: (T, AttrEnv) => U):AGParseResult[U] =
   mapWithAns(f)
-def ^^>>[U](f: T => U, add:(Answer, U) => Answer):AGParseResult[U] =
-  mapIntoAns(f, add)
-def >>^^>>[U](f: (T, Answer) => (Answer, U)):AGParseResult[U] =
+def ^^>>[U](f: T => (U, AttrEnv)):AGParseResult[U] =
+  mapIntoAns(f)
+def >>^^>>[U](f: (T, AttrEnv) => (AttrEnv, U)):AGParseResult[U] =
   mapWithAnsIntoAns(f)
 \end{lstlisting}
 
 Whenever a mapping function is applied on the result of a parser this functionality might influence the attribute environment which thus needs updating. On the other hand some semantic functions applied to a parse result might also need to access the attribute environment in order to apply a specific functionality. We used the same notation to express the differences between mapping function which need to access the environment in order to apply the semantic function and the ones that augment the existing environment with new attribute values.
-We can see that a fine tunes interplay between the different mapping and sequencing functions is needed to bring attributes values to the correct place.
+We can see that a fine tuned interplay between the different mapping and sequencing functions is needed to bring attributes values to the correct place.
 
 \subsection{ParseResult}
-Obviously the attributes included in the \textbf{Answer} need to be captured somewhere such that they can be passed around implicitly whenever they are not used. This is achieved by including the Answer inside the ResultType itself such that it can either be accessed or untouched depending on which attributes and evaluation it need to during the parsing.
+Obviously the attributes included in the \textbf{AttrEnv} need to be captured somewhere such that they can be passed around implicitly whenever they are not used. This is achieved by including the AttrEnv inside the \textbf{AGParseResult} itself such that it can either be accessed or stay untouched depending on which attributes and evaluation is needed to during the parsing.
 
 \begin{lstlisting}
-  case class AGSuccess[+T](result: T, next: Input, ans: Answer)
+  case class AGSuccess[+T](result: T, next: Input, ans: AttrEnv)
     extends AGParseResult[T]
   case class AGFailure(msg: String, next: Input)
     extends AGParseResult[Nothing]
 \end{lstlisting}
 
-This allows us to have monad-like structure and semantics such that the content of Answer can potentially change a Success to a Failure only depending on semantic features.
+This allows us to have monad-like structure and semantics such that the content of AttrEnv can potentially change a Success to a Failure only through validation depending on semantic checking.
 
 \subsection{Staging with LMS}
-As the AGParsers add another layer of abstraction on top of the already quite slow implementation of the Parser combinators we thought that it would be a good idea to stage the framework using LMS such that efficient code can be emitted. This method has been proven very helpful and fast in the development of the \textbf{FastParser}\cite{fastparsers} (which is macro based and still 2x faster than the LMS version).
-However does there not yet exist a finished LMS implementation of the StandardTokenParsers which could have been used as a solid starting point. Thus we tried to apply the method to a more basic CharParsers which is already implemented.
+As the AGParsers add another layer of abstraction on top of the already quite slow implementation of the Parser combinators so we thought that it would be a good idea to stage the framework using LMS such that efficient code can be emitted. This method has been proven very fast in the development of the \textbf{FastParser}\cite{fastparsers} (which is macro based and still 2x faster than the LMS based version).
+However does there not yet exist a working LMS implementation of the StandardTokenParsers which could have been used as a solid starting point. Thus we tried to apply the method to the more basic CharParsers which are already implemented.
 However do to a limit of time we did finish the implementation of the staged version of the AGParsers even though it would be interesting to see the efficiency gain.
