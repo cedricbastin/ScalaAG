@@ -5,6 +5,7 @@ import agParsers.AGParsers //helper functions for TypingResults
 /**
  * Created by cedricbastin on 25/04/15.
  */
+
 /*
 | is the alternation combinator. It says “succeed if either the left or right operand parse successfully”
 ~ is the sequential combinator. It says “succeed if the left operand parses successfully, and then the right parses successfully on the remaining input”
@@ -27,8 +28,7 @@ trait StlcGrammar extends AGParsers with StlcSig {
 
   //special case which need special handling
   def AbsHead: AGParser[Attr] = {
-    lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>> { //[Answer]
-      //case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
+    lift("\\") ~ lift(ident) ~ lift(":") ~ TypePars ~ lift(".") ^^>> {
       case "\\" ~ x ~ ":" ~ tp ~ "." => absHead(x, tp)
     }
   }

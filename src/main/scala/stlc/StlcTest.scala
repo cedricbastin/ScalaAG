@@ -1,41 +1,40 @@
 package stlc
 
-import scala.io.Source
 import scala.collection.immutable.HashMap
 
 /**
  * Created by cedricbastin on 30/04/15.
  */
 object TypingTest extends App {
-  class StlcTypingTest extends StlcGrammar with SltcTypingAlgebra {
-    val tests = Source.fromFile("test.in").getLines.filter(!_.startsWith("/*")).toList
-    tests.foreach {
-      testString =>
-        val tokens = new lexical.Scanner(testString)
-        print(testString + " --> ")
-        val defans:AttrEnv = new HashMap()
-
-        val parsed = Term(defans, tokens)
-        parsed match {
-          case AGSuccess(res, next, ans) =>
-            println("answer env:"+ans)
-            println(res)
-          case e =>
-            println(e)
-        }
-    }
-  }
-  val test = new StlcTypingTest()
+//  class StlcTypingTest extends StlcGrammar with SltcTypingAlgebra {
+//    val tests = Source.fromFile("test.in").getLines.filter(!_.startsWith("/*")).toList
+//    tests.foreach {
+//      testString =>
+//        val tokens = new lexical.Scanner(testString)
+//        print(testString + " --> ")
+//        val defans:AttrEnv = new HashMap()
+//
+//        val parsed = Term(defans, tokens)
+//        parsed match {
+//          case AGSuccess(res, next, ans) =>
+//            println("answer env:"+ans)
+//            println(res)
+//          case e =>
+//            println(e)
+//        }
+//    }
+//  }
+//  val test = new StlcTypingTest()
 
   object StlcTypingTest extends StlcGrammar with SltcTypingAlgebra {
     def test(in:String, tpe:Type) = {
-      print(in+"=> ")
+      println(in)
       val tokens = new lexical.Scanner(in)
       val initAns:AttrEnv = new HashMap()
       val parsed = Term(initAns, tokens)
       parsed match {
         case AGSuccess(res, next, ans) =>
-          if (res == tpe) println("ok!")
+          if (res == tpe) println("  =>  "+tpe)
           else println("type mismatch: expected: "+tpe+" found:"+res)
         case e =>
           println("parsing failure: "+e)
@@ -43,12 +42,12 @@ object TypingTest extends App {
     }
 
     def testAll() = {
-      test("true", TypeBool)
-      test("0", TypeNat)
-      test("3", TypeNat)
-      test("pred pred 0", TypeNat)
-      test("succ 0", TypeNat)
-      test("pred 4", TypeNat)
+//      test("true", TypeBool)
+//      test("0", TypeNat)
+//      test("3", TypeNat)
+//      test("pred pred 0", TypeNat)
+//      test("succ 0", TypeNat)
+//      test("pred 4", TypeNat)
       test("if true then 0 else succ 1", TypeNat)
       //ABSTRACTIONS
       test("""(\x:Nat. x)""", TypeFun(TypeNat, TypeNat))
