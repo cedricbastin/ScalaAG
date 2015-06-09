@@ -57,13 +57,13 @@ We decided to use the double arrow notation \verb/>>/ to express whenever the en
 
 As explained above the inputed of a parser is often unstructured and linear and thus requires the programmer to encode the hierarchy and scope of a specific combinator manually. 
 For instance the sequencing combinator can be used to combine 2 smaller parser, however each of those parser might potentially change the attribute environment.
-For instance the "flow" of the \verb/AttrEnv/ object of the operator \verb/parserA/ \verb/>>~>>/ \verb/parserB/ which means it is also passed on to whatever follow them. On the contrary `parserA ~>> parserB` means that only the answer from the second parser will be used in consecutive parsers
+For instance the "flow" of the \verb/AttrEnv/ object of the operator $parserA >> \sim >> parserB$ which means it is also passed on to whatever follow them. On the contrary $parserA \sim >> parserB$ means that only the answer from the second parser will be used in consecutive parsers
 The full interaction can be expressed in a graph for and easy to understand illustration of how the different \textbf{answer piping} interrelate.
 \begin{flushleft}
 \centerline{\includegraphics[width=8cm]{ans_piping.png}}
 \end{flushleft}
 Some confusion might occur due to the left associativity of parser combinators which makes some grouping implicit and tough to see which environment is actually piped where.
-The programmer might need to use parentheses in order to keep the environment in the correct scope and make his attempt more clear. For instance in the case $parserA \sim parserB \sim parserC$, if only the environment of $parserA$ should be used in the consecutive parsers, we need to write: $parser >>\sim ( parserB \sim parserC )$ as $parser >>\sim parserB \sim parserC$ would not bring the new environment all the way to $parserC$.
+The programmer might need to use parentheses in order to keep the environment in the correct scope and make his attempt more clear. For instance in the case $parserA \sim parserB \sim parserC$, if only the environment of $parserA$ should be used in the consecutive parsers, we need to write: $parserA >>\sim ( parserB \sim parserC )$ as $parserA >>\sim parserB \sim parserC$ would not bring the new environment all the way to $parserC$.
 
 \subsection{Mapping}
 The mapping function has similar cases than the sequencing thus the signatures look familiar:

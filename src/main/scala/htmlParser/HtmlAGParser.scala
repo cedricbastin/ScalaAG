@@ -4,8 +4,8 @@ import agParsers.AGParsers //helper functions for TypingResults
 import agParsers.AGSig
 
 /**
-* Created by cedricbastin on 25/04/15.
-*/
+ * Created by cedricbastin on 25/04/15.
+ */
 /*
 | is the alternation combinator. It says “succeed if either the left or right operand parse successfully”
 ~ is the sequential combinator. It says “succeed if the left operand parses successfully, and then the right parses successfully on the remaining input”
@@ -16,112 +16,115 @@ rep => simply says “expect N-many repetitions of parser X” where X is the pa
 */
 
 trait HtmlSig extends AGSig {
-  def start(tag:String, ps:List[Property], a:AttrEnv):AttrEnv
-  def end(tag:String, a:AttrEnv):(Boolean, AttrEnv)
+  def defAttr:Attr //default attribute
+  def start(tag:String):(Attr, AttrEnv)
+  def end(tag:String, a:AttrEnv):(AttrEnv, Attr)
   def validate(tag:String, a:AttrEnv):Boolean
-  //def add(tag:String, a:Answer):Answer
+  def validateFull(syn:List[Attr], in:AttrEnv):Boolean
+  def collect(a:AttrEnv):(AttrEnv, Attr)
 }
 
-trait HtmlBody {
-  def print
-}
-case class Container(tag:String, properties:List[Property], body:Body) extends HtmlBody {
-  def print:Unit = {
-    println("<" + tag +properties.foldLeft("")(_+_)+ ">\r\n")
-    body.print
-    println(" \r\n<\\" + tag + ">\r\n")
+case class Container(tag:String, body:List[Container]) {
+  def print:Unit = print("")
+  def print(s:String):Unit = {
+    println(s+"<" + tag +">")
+    body.reverse.foreach(_.print(s+"  "))
+    println(s+"<\\" + tag + ">")
   }
-}
-case class Content(s:String) extends HtmlBody {
-  def print:Unit = println(s)
-}
-case class Body(ls:List[HtmlBody]) {
-  def print = ls.foreach(_.print)
-}
-
-case class Property(key:String, value:String) {
-  override def toString = key+"=\""+value+"\""
 }
 
 trait HtmlGrammar extends AGParsers with HtmlSig {
   lexical.delimiters ++= List("<", ">", "\\", """"""", "=")
+  lexical.reserved ++= List("x")
 
-  def PropertyP: AGParser[Property] = {
-    lift(ident) ~ lift("=")  ~ lift(ident) ^^ { //~ lift(""""""")
-      case name ~ eq ~ value =>
-        println("property")
-        Property(name, value)
+  def HtmlP:AGParser[List[Attr]] = {
+    (repWithAns(Collect | End(ident) | Start(ident)) validate {
+      case (list, inAttrs) => validateFull(list, inAttrs)
+    }) >>^^>> { (x, ans) => (ans, x) }
+  }
+
+  def Start(pars:Parser[String]): AGParser[Attr] = {
+    lift(keyword("<")) ~> lift(pars) <~ lift(keyword(">")) ^^>> {
+      case tag => start(tag)
     }
   }
 
-  def Start: AGParser[(String, List[Property])] = {
-    //(f: T => U, add:(Answer, U) => Answer)
-    lift(keyword("<")) ~> lift(ident) ~ rep(PropertyP) <~ lift(keyword(">")) >>^^>> {
-      case (tag ~ ps, a:AttrEnv) => (start(tag, ps, a), (tag, ps))
-    }
-  }
-
-  def BodyP:AGParser[Body] = {
-    lift(ident) ^^ { case s => Body(Content(s) :: Nil)} |
-      rep(ContainerP) ^^ { case ls => Body(ls)}
-  }
-
-  def End: AGParser[String] = {
-    (lift("<") ~> lift("\\") ~> lift(ident) <~ lift(">") validate {
-      case (s, ans) => validate(s, ans)
+  def End(pars:Parser[String]): AGParser[Attr] = {
+    (lift("<") ~> lift("\\") ~> lift(pars) <~ lift(">") validate {
+      case (s, ans) =>
+        validate(s, ans)
     }) >>^^>> {
-      case (tag, ans) =>
-        val res = end(tag, ans)
-        (res._2, tag)
+      case (tag, ans) => end(tag, ans)
     }
   }
 
-  def ContainerP: AGParser[Container] = {
-    Start >>~>> BodyP >>~>> End ^^ { //validate { case start ~ cont ~ end => start == end } //TODO: validation parser is not really
-      case start ~ body ~ end => Container(start._1, start._2, body)
-    } | lift(failure("illegal start of container"))
+  def Collect: AGParser[Attr] = {
+    Start("x") >>~>> Start(ident) >>~>> End(ident) >>~>> End("x") >>^^>> {
+      case (startX ~ start ~ end ~ endX, ans) => collect(ans)
+    }
   }
 }
 
 trait HtmlAlgebra extends HtmlSig {
-  type AttrEnv = List[String] //stack where we push and pop the head
+  type Attr = Option[Container] //we build a recognizer rather than a parser
+  type AttrEnv = List[Either[String, Container]] //stack where we push and pop the head
+  val defAttr = None //the collector doesn't collect anything by default
 
-  def start(tag:String, ps:List[Property], a:AttrEnv) = tag :: a //return answer??
-  def end(tag:String, a:AttrEnv) = a match {
-      case x :: xs if x == tag => (true, xs)
-      case _ => (false, a)
+  def start(tag:String):(Attr, AttrEnv) = (defAttr, Left(tag) :: Nil) //push stuff to head
+
+  def end(tag:String, a:AttrEnv):(AttrEnv, Attr) = {
+    val (conts:List[Right[String, Container]], tags) = a span {case Right(_) => true case _ => false} //collect all containers
+    tags match {
+      case Left(s) :: xs =>
+        assert(s == tag)
+        val nx:Either[String, Container] = Right(Container(tag, conts.map{ case Right(c) => c}))
+        (nx :: xs, defAttr)
     }
-  def validate(tag:String, a:AttrEnv) = a match {
-    case x :: xs if (x == tag) => true
-    case _ => false
   }
-  def combine(a1:AttrEnv, a2: AttrEnv) = a1 ::: a2
+
+  def collect(a:AttrEnv):(AttrEnv, Attr) = a match {
+    case Right(x) :: xs => (a, Some(x))
+  }
+
+  def validate(tag:String, a:AttrEnv) = {
+    a.find{case Left(_) => true case _ => false} match { //last added opening tag
+      case Some(Left(t)) => tag == t //matching open and closing tags
+      case _ => false
+    }
+  }
+
+  def validateFull(syn:List[Attr], in:AttrEnv):Boolean = {
+    in.forall{case Right(_) => true case _ => false} //no unclosed container left
+  }
+
+  def combine(old:AttrEnv, niew: AttrEnv) = niew ::: old //TODO: is this a good idea?, when to use it?
 }
 
 class HtmlTest extends HtmlGrammar with HtmlAlgebra {
-    def test(in:String) = {
-      print(in+"=> ")
-      val tokens:lexical.Scanner = new lexical.Scanner(in)
-      val initAns = Nil
-      val parsed = ContainerP(initAns, tokens)
-      parsed match {
-        case AGSuccess(res, next, ans) =>
-          println(res)
-        case e =>
-          println("parsing failure: "+e)
-      }
+  def test(in:String) = {
+    println("input: "+in+" => ")
+    val tokens:lexical.Scanner = new lexical.Scanner(in)
+    val initAns = Nil
+    val parsed = HtmlP(initAns, tokens)
+    parsed match {
+      case AGSuccess(res, next, ans) =>
+        println("validated: ")
+        ans.reverse.foreach{case Right(c) => c.print}
+        println("")
+        println("collected: ")
+        res.collect{case Some(c) => c}.reverse.foreach(_.print)
+      case e =>
+        println("parsing failure: "+e)
     }
-    def testAll() = {
-      test("<test><\\testX>")
-      test("""<test property =  value ><\\test>""")
-      test("<test><h1><\\h2><\\test>")
-      test("<test><c1><\\c1><\\test>")
-      test("<test><c1><\\c1><c1><\\c1><c1><\\c1><\\test>")
-      test("<test><\\test><c1><\\c1>")
-      test("<test><c1><c2><\\c2><\\c1><\\test>")
-      test("<test jojo=\"haha\"><c1><\\c1><c2><\\c2><\\test>")
-      test("<test><c1><\\c1><c2><\\c3><\\test>")
-    }
+  }
+  def testAll() = {
+    test("<a> <\\a>")
+    test("<a> <\\aX>")
+    test("<x> <c> <\\c> <\\x>")
+    test("<a> <b> <\\bx> <\\a>")
+    test("<x> <\\x>")
+    test("<a> <x> <c> <\\c> <\\x> <b> <x> <a> <\\a> <\\x> <\\b> <\\a> <x> <d> <\\d> <\\x>")
+  }
 }
 
 object Test extends App {

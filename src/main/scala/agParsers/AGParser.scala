@@ -49,7 +49,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         this(ans, input) match {
           case AGSuccess(result1, next1, _) =>
             if (p(result1)) AGSuccess(result1, next1, ans)
-            else AGFailure("validation failed on: "+result1, next1)
+            else AGFailure("validation failed on: "+result1+" ans: "+ans, next1)
           case AGFailure(msg1, next1) =>
             AGFailure(msg1, next1)
         }
@@ -60,7 +60,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
             if (p(result1, ans1)) AGSuccess(result1, next1, ans1) //pipe this answer?
-            else AGFailure("validation failed on: "+result1, next1)
+            else AGFailure("validation failed on: "+result1+" ans: "+ans, next1)
           case AGFailure(msg1, next1) =>
             AGFailure(msg1, next1)
         }
@@ -138,30 +138,6 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
     def >>^^>>[U](f: (T, AttrEnv) => (AttrEnv, U)) = mapWithAnsIntoAns(f)
 
-//    def mapWithAnsIntoAns[U](f:(T, Answer) => U)(add:(Answer, U) => Answer) = {
-//      case (ans: Answer, input: Input) =>
-//        this(ans, input) match {
-//          case AGSuccess(result1, next1, ans1) =>
-//            val res = f(result1, ans1)
-//            AGSuccess(res, next1, add(ans, res))
-//          case AGFailure(msg1, next1) =>
-//            AGFailure(msg1, next1)
-//        }
-//    }
-//
-//    def >>^^>>[U](f: (T, Answer) => U)(add:(Answer, U) => Answer) = mapWithAnsIntoAns(f)(add)
-
-// A more direct way to augment answer when a Parser[Answer] is used
-//    def ^^>>>(f: T => Answer) = AGParser[Answer] {
-//      case (ans: Answer, input: Input) =>
-//        this(ans, input) match {
-//          case AGSuccess(result1, next1, ans1) =>
-//            val res = f(result1)
-//            AGSuccess(res, next1, combine(res, ans))
-//          case AGFailure(msg1, next1) =>
-//            AGFailure(msg1, next1)
-//        }
-//    }
 
     def flatMap[U](f: T => AGParser[U]) = AGParser[U] {
       case (ans, input: Input) =>
