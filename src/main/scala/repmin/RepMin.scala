@@ -5,7 +5,25 @@ import agParsers._
 /**
  * Created by cedricbastin on 23/05/15.
  */
-sealed trait Tree
+sealed trait Tree {
+  def print(s:String, flag:Boolean):Unit = this match {
+    case Node(l, v, r) =>
+      if (flag) {
+        println(s+"├───" + v)
+        l.print(s+"|   ", true)
+        r.print(s+"|   ", false)
+      } else {
+        println(s+"└───" + v)
+        l.print(s+"    ", true)
+        r.print(s+"    ", false)
+      }
+    case Leaf =>
+      if (flag)
+        println(s+"├────X")
+      else
+        println(s+"└────X")
+  }
+}
 case class Node(l:Tree, v:Int, r:Tree) extends Tree
 case object Leaf extends Tree
 
@@ -58,17 +76,19 @@ trait RepMinGrammar extends AGParsers with RepMinSig {
 
 class RepMinTest extends RepMinGrammar with RepMinAlgebra {
   def test(s:String) = {
+    println("")
     val tokens:lexical.Scanner = new lexical.Scanner(s)
-    val defAns = 1000
+    val defAns = 1000 //maximal minimum
     val parsed:AGParseResult[Tree] = Root(defAns, tokens)
-    println(parsed)
+    println(s)
+    parsed.map(_.print("", false))
   }
 
   def testAll() = {
-    test("x")
-    test("( x 4 x )")
-    test("( ( x 3 x ) 4 x )")
-    test("( ( ( x 4 x ) 5 ( x 4 x ) ) 4 ( x 2 x ) )")
+    //test("x")
+    //test("( x 4 x )")
+    //test("( ( x 3 x ) 4 x )")
+    test("( ( ( x 4 x ) 5 ( x 1 ( ( ( x 9 x ) 6 ( x 3 x ) ) 6 x ) ) ) 4 ( x 2 x ) )")
   }
 }
 

@@ -27,7 +27,13 @@ trait AGParsers extends StandardTokenParsers with AGSig {
   // type Answer is an abstract data type which can be configures to contain differnent environments needed to execute the semantic functions
   // is used instead of carrying around an additional type parameter
 
-  sealed abstract class AGParseResult[+T] // wrapper class for ParseResult[T] which cannot be extended
+  sealed abstract class AGParseResult[+T] {
+    // wrapper class for ParseResult[T] which cannot be extended
+    def map[U](f:T => U) = this match {
+      case AGSuccess(result, next, ans) => AGSuccess(f(result), next, ans)
+      case AGFailure(msg, next) => AGFailure(msg, next)
+    }
+  }
   object AGParseResult {
     def apply[T](pr:ParseResult[T], ans:AttrEnv) = pr match {
       case Success(result, next) => AGSuccess(result, next, ans)
