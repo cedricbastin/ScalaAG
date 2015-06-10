@@ -73,19 +73,25 @@ trait HtmlAlgebra extends HtmlSig {
   def start(tag:String):(Attr, AttrEnv) = (defAttr, Left(tag) :: Nil) //push stuff to head
 
   def end(tag:String, a:AttrEnv):(AttrEnv, Attr) = {
-    val (conts:List[Right[String, Container]], tags) = a span {case Right(_) => true case _ => false} //collect all containers
+    val (conts, tags) = a span {case Right(_) => true case _ => false} //collect all containers
     tags match {
       case Left(s) :: xs =>
-        assert(s == tag)
-        val nx:Either[String, Container] = Right(Container(tag, conts.map{ case Right(c) => c}))
+        assert(s == tag) //validation should have been done beforehand
+        val nx:Either[String, Container] = Right(Container(tag, conts.collect{ case Right(c) => c}))
         (nx :: xs, defAttr)
+      case _ => //should never happens
+        assert(false)
+        null
     }
   }
 
+  //collect the last see container, you should know what it is
   def collect(a:AttrEnv):(AttrEnv, Attr) = a match {
     case Right(x) :: xs => (a, Some(x))
+    case _ => assert(false); (a, None) //
   }
 
+  //validate that the string value of a closing tag corresponds to the last opening tag
   def validate(tag:String, a:AttrEnv) = {
     a.find{case Left(_) => true case _ => false} match { //last added opening tag
       case Some(Left(t)) => tag == t //matching open and closing tags
@@ -93,6 +99,7 @@ trait HtmlAlgebra extends HtmlSig {
     }
   }
 
+  //validate that a fully parsed xml has all it's containers closed
   def validateFull(syn:List[Attr], in:AttrEnv):Boolean = {
     in.forall{case Right(_) => true case _ => false} //no unclosed container left
   }
@@ -109,7 +116,7 @@ class HtmlTest extends HtmlGrammar with HtmlAlgebra {
     parsed match {
       case AGSuccess(res, next, ans) =>
         println("validated: ")
-        ans.reverse.foreach{case Right(c) => c.print}
+        ans.reverse.foreach{case Right(c) => c.print case _ => ()}
         println("")
         println("collected: ")
         res.collect{case Some(c) => c}.reverse.foreach(_.print)

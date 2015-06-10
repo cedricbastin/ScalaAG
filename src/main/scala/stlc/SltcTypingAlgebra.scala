@@ -7,7 +7,6 @@ package stlc
 trait SltcTypingAlgebra extends StlcSig {
   type AttrEnv =  Map[String, Type]
   type Attr = Type
-  //case class Answer(env: Env, tpe: Type) //only keep an environment
 
   def tru: Attr = TypeBool
   def fals: Attr = TypeBool

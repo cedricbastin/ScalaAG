@@ -21,32 +21,29 @@ trait AGSig {
  * An partial implementation of a parser library to allow to compute semanic function over a parse tree at the same time as parsing
  */
 trait AGParsers extends StandardTokenParsers with AGSig {
-//  case class PA[+T](t:T, a:Answer)
-//  implicit def unpack[+T](pa:PA[T]):T = pa.t
+  /* AGSig defines abstract type members
+   * "Attr" represent the Attributes potentially returned by the Parsers: AGParser[Attr]
+   * "AttrEnv" represents the environment if inherited and syntezised attributes collected through the tree
+   */
 
-  // type Answer is an abstract data type which can be configures to contain differnent environments needed to execute the semantic functions
-  // is used instead of carrying around an additional type parameter
-
-  sealed abstract class AGParseResult[+T] {
-    // wrapper class for ParseResult[T] which cannot be extended
+  sealed abstract class AGParseResult[+T] { // wrapper class for ParseResult[T] which cannot be extended
     def map[U](f:T => U) = this match {
       case AGSuccess(result, next, ans) => AGSuccess(f(result), next, ans)
       case AGFailure(msg, next) => AGFailure(msg, next)
     }
   }
-  object AGParseResult {
+
+  object AGParseResult { //companion object to help create AGParseResults
     def apply[T](pr:ParseResult[T], ans:AttrEnv) = pr match {
       case Success(result, next) => AGSuccess(result, next, ans)
-      case Failure(msg, next) => AGFailure(msg, next)
+      case NoSuccess(msg, next) => AGFailure(msg, next) //matches both Error and Failure
     }
   }
-  //TODO: class NoSuccess extends ParseResult, Failure extends NoSuccess, Error extends NoSuccess
-  case class AGSuccess[+T](result: T, next: Input, ans: AttrEnv) extends AGParseResult[T] {
-    def check = {if (result == null) AGFailure("check failed", next)}
-  }
+  //TODO: still implement class NoSuccess extends ParseResult, Failure extends NoSuccess, Error extends NoSuccess
+  case class AGSuccess[+T](result: T, next: Input, ans: AttrEnv) extends AGParseResult[T]
   case class AGFailure(msg: String, next: Input) extends AGParseResult[Nothing]
 
-  //T is independent from Answer but can be included as additional information in an Answer if needed
+  // T is independent from abstract type "Attr" but could potentially be the same
   // parser combinator methods arguments need to be call by name otherwise the stack will overflow
   abstract class AGParser[+T] extends ((AttrEnv, Input) => AGParseResult[T]) {
 
@@ -61,7 +58,9 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    def validate(p: (T, AttrEnv) => Boolean) = AGParser[T] { //this method should be usable combined with map etc...
+    //With the additional semantic knowledge we can create new validation to check for well-formedness
+    //TODO: this method should be easily usable with "map" etc
+    def validate(p: (T, AttrEnv) => Boolean) = AGParser[T] {
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
@@ -71,17 +70,6 @@ trait AGParsers extends StandardTokenParsers with AGSig {
             AGFailure(msg1, next1)
         }
     }
-
-    //should there be integrated methods for validation and e.g. mapping etc?
-//    def validate[U](f: (T, Answer) => (Boolean, U)) = AGParser[U] {
-//      case (ans, input: Input) =>
-//        this(ans, input) match {
-//          case AGSuccess(result1, next1, _) =>
-//            AGSuccess(f(result1), next1, ans)
-//          case AGFailure(msg1, next1) =>
-//            AGFailure(msg1, next1)
-//        }
-//    }
 
     def map[U](f: T => U) = AGParser[U] {
       case (ans, input: Input) =>
@@ -96,7 +84,6 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     def ^^[U](f: T => U) = map(f)
 
     def ^^^[U](f: => U) = AGParser[U] {
-      //include Answer in the signature?
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, _) =>
@@ -115,7 +102,6 @@ trait AGParsers extends StandardTokenParsers with AGSig {
             AGFailure(msg1, next1)
         }
     }
-
     def >>^^[U](f: (T, AttrEnv) => U) = mapWithAns(f)
 
     def mapIntoAns[U](f: T => (U, AttrEnv)) = AGParser[U] { //returned answer needs to be merged with previous one
@@ -128,7 +114,6 @@ trait AGParsers extends StandardTokenParsers with AGSig {
             AGFailure(msg1, next1)
         }
     }
-
     def ^^>>[U](f: T => (U, AttrEnv)) = mapIntoAns(f)
 
     def mapWithAnsIntoAns[U](f:(T, AttrEnv) => (AttrEnv, U)) = AGParser[U] {
@@ -141,9 +126,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
             AGFailure(msg1, next1)
         }
     }
-
     def >>^^>>[U](f: (T, AttrEnv) => (AttrEnv, U)) = mapWithAnsIntoAns(f)
-
 
     def flatMap[U](f: T => AGParser[U]) = AGParser[U] {
       case (ans, input: Input) =>
@@ -154,7 +137,6 @@ trait AGParsers extends StandardTokenParsers with AGSig {
             AGFailure(msg1, next1)
         }
     }
-
     def >>[U](f: T => AGParser[U]) = flatMap(f)
     def into[U](f: T => AGParser[U]) = flatMap(f)
 
@@ -178,15 +160,8 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
   /*
    * sequence parsers return "~" tuples to allow easy pattern matching over the AGParseResults
-   * in general only pipe original env through except for ~~
+   * in general only original attribute environment is piped through the operator
    */
-
-    /**
-     * Never augement the answer, always pipe the original answer
-     * @param that
-     * @tparam U
-     * @return
-     */
     def ~[U](that: => AGParser[U]) = AGParser[~[T, U]] {
       case (ans, input: Input) =>
         this(ans, input) match {
@@ -202,11 +177,9 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    /**
-     * pipe Answer from parser1 to parser2 but not don't output as the final answer
-     * @param that
-     * @tparam U
-     * @return
+    /*
+     * eg. parserC = parserA >>~ parserB
+     * attribute environment is only piped from parserA to parserB won't be in the AGParseResult of parserC
      */
     def >>~[U](that: => AGParser[U]) = AGParser[~[T, U]] {
       case (ans, input: Input) =>
@@ -223,11 +196,10 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    /**
-     * pipe Answer from parser2 to global environment of the combined parser
-     * @param that
-     * @tparam U
-     * @return
+    /*
+     * eg. parserC = parserA ~>> parserB
+     * the potentially updated attribute environment of parserA is not piped to parserB
+     * however the attribute environment from parserB is included in the ParseResult of parserC
      */
     def ~>>[U](that: => AGParser[U]) = AGParser[~[T, U]] {
       case (ans, input: Input) =>
@@ -244,12 +216,6 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         }
     }
 
-    /**
-     * pipe answer1 to parser2 and pipe answer2 to final result
-     * @param that
-     * @tparam U
-     * @return
-     */
     def >>~>>[U](that: => AGParser[U]) = AGParser[~[T, U]] {
       case (ans, input: Input) =>
         this(ans, input) match {
@@ -267,7 +233,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
     def ~>[U](that: => AGParser[U]) = AGParser[U] {
       case (ans, input: Input) => this.~(that)(ans, input) match {
-        case AGSuccess(~(t: T, u: U), next, _) =>
+        case AGSuccess(~(t, u), next, _) =>
           AGSuccess[U](u, next, ans)
         case AGFailure(msg1, next1) =>
           AGFailure(msg1, next1)
@@ -276,7 +242,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
 
     def <~[U](that: => AGParser[U]) = AGParser[T] {
       case (ans, input: Input) => this.~(that)(ans, input) match {
-        case AGSuccess(~(t: T, u: U), next, _) =>
+        case AGSuccess(~(t, u), next, _) =>
           AGSuccess[T](t, next, ans)
         case AGFailure(msg1, next1) =>
           AGFailure(msg1, next1)
@@ -287,48 +253,44 @@ trait AGParsers extends StandardTokenParsers with AGSig {
       case (ans, input: Input) =>
         failure(s)(input) match {
           case Success(result, next) => AGSuccess[T](result, next, ans)
-          case Failure(msg, next) => AGFailure(msg, next)
+          case NoSuccess(msg, next) => AGFailure(msg, next)
         }
     }
-
-
   }
 
-  //help functions for Parsers trait
-
+  //easy interface to use the predefined parsers form The StandardToken library
   def lift[T](pars: => Parser[T]) = AGParser[T] {
     case (ans, input: Input) =>
       pars(input) match {
         case Success(result, next) => AGSuccess[T](result, next, ans) //pipe Answer through
-        case Failure(msg, next) => AGFailure(msg, next)
+        case NoSuccess(msg, next) => AGFailure(msg, next)
       }
   }
-  implicit def impLift(s:String) = lift(keyword(s))
-  //implicit def impLift[T](p: Parser[T]) = lift(p)
-
+  //implicit def impLift(s:String) = lift(keyword(s)) //this doesn't work well
 
   def rep[T](pars: AGParser[T]):AGParser[List[T]] = AGParser[List[T]] {
     case (ans, input: Input) =>
       pars(ans, input) match {
         case AGSuccess(result1, next1, _) =>
-          rep(pars)(ans, next1) match { //pipe original Answer / DONT propagate new answer (for now we could easily introduce new rep combinators)
-            case AGSuccess(result2, next2, _) => AGSuccess(result1 :: result2, next2, ans) //propagate old Answer
+          rep(pars)(ans, next1) match {
+            case AGSuccess(result2, next2, _) => AGSuccess(result1 :: result2, next2, ans)
             case fail => AGSuccess(result1 :: Nil, next1, ans)
           }
         case AGFailure(msg1, next1) => AGSuccess(Nil, next1, ans) //rep parser always suceeds
       }
   }
 
+  //rep parser never fails!
   def repWithAns[T](pars: AGParser[T]):AGParser[List[T]] = AGParser[List[T]] {
     case (ans, input: Input) =>
       pars(ans, input) match {
         case AGSuccess(result1, next1, ans1) =>
           repWithAns(pars)(ans1, next1) match {
             //pipe original Answer
-            case AGSuccess(result2, next2, ans2) => AGSuccess(result1 :: result2, next1, ans2) //propagate old Answer
-            case fail => AGSuccess(result1 :: Nil, next1, ans1) //pipe previous ans still
+            case AGSuccess(result2, next2, ans2) => AGSuccess(result1 :: result2, next1, ans2)
+            case fail => AGSuccess(result1 :: Nil, next1, ans1) //should never happen?
           }
-        case AGFailure(msg1, next1) => AGSuccess(Nil, next1, ans) //rep parser always suceeds -> can parse Nil!
+        case AGFailure(msg1, next1) => AGSuccess(Nil, next1, ans)
       }
   }
 
