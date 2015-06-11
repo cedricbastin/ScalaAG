@@ -29,19 +29,19 @@ trait AGParsers extends StandardTokenParsers with AGSig {
   sealed abstract class AGParseResult[+T] { // wrapper class for ParseResult[T] which cannot be extended
     def map[U](f:T => U) = this match {
       case AGSuccess(result, next, ans) => AGSuccess(f(result), next, ans)
-      case AGFailure(msg, next) => AGFailure(msg, next)
+      case AGFailure(msg, next, ans) => AGFailure(msg, next, ans)
     }
   }
 
   object AGParseResult { //companion object to help create AGParseResults
     def apply[T](pr:ParseResult[T], ans:AttrEnv) = pr match {
       case Success(result, next) => AGSuccess(result, next, ans)
-      case NoSuccess(msg, next) => AGFailure(msg, next) //matches both Error and Failure
+      case NoSuccess(msg, next) => AGFailure(msg, next, ans) //matches both Error and Failure
     }
   }
   //TODO: still implement class NoSuccess extends ParseResult, Failure extends NoSuccess, Error extends NoSuccess
   case class AGSuccess[+T](result: T, next: Input, ans: AttrEnv) extends AGParseResult[T]
-  case class AGFailure(msg: String, next: Input) extends AGParseResult[Nothing]
+  case class AGFailure(msg: String, next: Input, ans: AttrEnv) extends AGParseResult[Nothing]
 
   // T is independent from abstract type "Attr" but could potentially be the same
   // parser combinator methods arguments need to be call by name otherwise the stack will overflow
@@ -50,11 +50,11 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     def validatePrim(p: T => Boolean) = AGParser[T] { //this method should be usable combined with map etc...
       case (ans, input: Input) =>
         this(ans, input) match {
-          case AGSuccess(result1, next1, _) =>
+          case AGSuccess(result1, next1, ans1) =>
             if (p(result1)) AGSuccess(result1, next1, ans)
-            else AGFailure("validation failed on: "+result1+" ans: "+ans, next1)
-          case AGFailure(msg1, next1) =>
-            AGFailure(msg1, next1)
+            else AGFailure("validation failed on: "+result1+" ans: "+ans, next1, ans1)
+          case AGFailure(msg1, next1, ans1) =>
+            AGFailure(msg1, next1, ans1)
         }
     }
 
@@ -65,9 +65,9 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
             if (p(result1, ans1)) AGSuccess(result1, next1, ans1) //pipe this answer?
-            else AGFailure("validation failed on: "+result1+" ans: "+ans, next1)
-          case AGFailure(msg1, next1) =>
-            AGFailure(msg1, next1)
+            else AGFailure("validation failed on: "+result1+" ans: "+ans, next1, ans1)
+          case AGFailure(msg1, next1, ans1) =>
+            AGFailure(msg1, next1, ans1)
         }
     }
 
@@ -76,8 +76,8 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         this(ans, input) match {
           case AGSuccess(result1, next1, _) =>
             AGSuccess(f(result1), next1, ans)
-          case AGFailure(msg1, next1) =>
-            AGFailure(msg1, next1)
+          case AGFailure(msg1, next1, ans1) =>
+            AGFailure(msg1, next1, ans1)
         }
     }
 
@@ -88,8 +88,8 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         this(ans, input) match {
           case AGSuccess(result1, next1, _) =>
             AGSuccess(f, next1, ans)
-          case AGFailure(msg1, next1) =>
-            AGFailure(msg1, next1)
+          case AGFailure(msg1, next1, ans1) =>
+            AGFailure(msg1, next1, ans1)
         }
     }
 
@@ -98,8 +98,8 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
             AGSuccess(f(result1, ans1), next1, ans)
-          case AGFailure(msg1, next1) =>
-            AGFailure(msg1, next1)
+          case AGFailure(msg1, next1, ans1) =>
+            AGFailure(msg1, next1, ans1)
         }
     }
     def >>^^[U](f: (T, AttrEnv) => U) = mapWithAns(f)
@@ -110,31 +110,31 @@ trait AGParsers extends StandardTokenParsers with AGSig {
           case AGSuccess(result1, next1, _) => //should this new ans be used?
             val (res, ansx) = f(result1)
             AGSuccess(res, next1, combine(ans, ansx))
-          case AGFailure(msg1, next1) =>
-            AGFailure(msg1, next1)
+          case AGFailure(msg1, next1, ans1) =>
+            AGFailure(msg1, next1, ans1)
         }
     }
     def ^^>>[U](f: T => (U, AttrEnv)) = mapIntoAns(f)
 
-    def mapWithAnsIntoAns[U](f:(T, AttrEnv) => (AttrEnv, U)) = AGParser[U] {
+    def mapWithAnsIntoAns[U](f:(T, AttrEnv) => (U, AttrEnv)) = AGParser[U] {
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
             val res = f(result1, ans1)
-            AGSuccess(res._2, next1, res._1)
-          case AGFailure(msg1, next1) =>
-            AGFailure(msg1, next1)
+            AGSuccess(res._1, next1, res._2)
+          case AGFailure(msg1, next1, ans1) =>
+            AGFailure(msg1, next1, ans1)
         }
     }
-    def >>^^>>[U](f: (T, AttrEnv) => (AttrEnv, U)) = mapWithAnsIntoAns(f)
+    def >>^^>>[U](f: (T, AttrEnv) => (U, AttrEnv)) = mapWithAnsIntoAns(f)
 
     def flatMap[U](f: T => AGParser[U]) = AGParser[U] {
       case (ans, input: Input) =>
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
             f(result1)(ans1, next1)
-          case AGFailure(msg1, next1) =>
-            AGFailure(msg1, next1)
+          case AGFailure(msg1, next1, ans1) =>
+            AGFailure(msg1, next1, ans1)
         }
     }
     def >>[U](f: T => AGParser[U]) = flatMap(f)
@@ -145,8 +145,8 @@ trait AGParsers extends StandardTokenParsers with AGSig {
         this(ans, input) match {
           case AGSuccess(result1, next1, ans1) =>
             f(result1, ans1)(ans1, next1)
-          case AGFailure(msg1, next1) =>
-            AGFailure(msg1, next1)
+          case AGFailure(msg1, next1, ans1) =>
+            AGFailure(msg1, next1, ans1)
         }
     }
 
@@ -169,11 +169,11 @@ trait AGParsers extends StandardTokenParsers with AGSig {
             that(ans, next1) match { //use original Answer
               case AGSuccess(result2, next2, ans2) =>
                 AGSuccess(new ~(result1, result2), next2, ans) //return original Answer
-              case AGFailure(msg2, next2) =>
-                AGFailure(msg2, next2)
+              case AGFailure(msg2, next2, ans2) =>
+                AGFailure(msg2, next2, ans2)
             }
-          case AGFailure(msg1, next1) =>
-            AGFailure(msg1, next1)
+          case AGFailure(msg1, next1, ans1) =>
+            AGFailure(msg1, next1, ans1)
         }
     }
 
@@ -188,11 +188,11 @@ trait AGParsers extends StandardTokenParsers with AGSig {
             that(ans1, next1) match { //use augmented answer from parser1
               case AGSuccess(result2, next2, _) =>
                 AGSuccess(new ~(result1, result2), next2, ans) //return initial answer
-              case AGFailure(msg2, next2) =>
-                AGFailure(msg2, next2)
+              case AGFailure(msg2, next2, ans2) =>
+                AGFailure(msg2, next2, ans2)
             }
-          case AGFailure(msg1, next1) =>
-            AGFailure(msg1, next1)
+          case AGFailure(msg1, next1, ans1) =>
+            AGFailure(msg1, next1, ans1)
         }
     }
 
@@ -208,11 +208,11 @@ trait AGParsers extends StandardTokenParsers with AGSig {
             that(ans, next1) match { //use original answer
               case AGSuccess(result2, next2, ans2) =>
                 AGSuccess(new ~(result1, result2), next2, ans2) //return answer from 2nd parser
-              case AGFailure(msg2, next2) =>
-                AGFailure(msg2, next2)
+              case AGFailure(msg2, next2, ans2) =>
+                AGFailure(msg2, next2, ans2)
             }
-          case AGFailure(msg1, next1) =>
-            AGFailure(msg1, next1)
+          case AGFailure(msg1, next1, ans1) =>
+            AGFailure(msg1, next1, ans1)
         }
     }
 
@@ -223,11 +223,11 @@ trait AGParsers extends StandardTokenParsers with AGSig {
             that(ans1, next1) match { //use new answer
               case AGSuccess(result2, next2, ans2) =>
                 AGSuccess(new ~(result1, result2), next2, ans2) //return answer from 2nd parser
-              case AGFailure(msg2, next2) =>
-                AGFailure(msg2, next2)
+              case AGFailure(msg2, next2, ans2) =>
+                AGFailure(msg2, next2, ans2)
             }
-          case AGFailure(msg1, next1) =>
-            AGFailure(msg1, next1)
+          case AGFailure(msg1, next1, ans1) =>
+            AGFailure(msg1, next1, ans1)
         }
     }
 
@@ -235,8 +235,8 @@ trait AGParsers extends StandardTokenParsers with AGSig {
       case (ans, input: Input) => this.~(that)(ans, input) match {
         case AGSuccess(~(t, u), next, _) =>
           AGSuccess[U](u, next, ans)
-        case AGFailure(msg1, next1) =>
-          AGFailure(msg1, next1)
+        case AGFailure(msg1, next1, ans1) =>
+          AGFailure(msg1, next1, ans1)
       }
     }
 
@@ -244,8 +244,8 @@ trait AGParsers extends StandardTokenParsers with AGSig {
       case (ans, input: Input) => this.~(that)(ans, input) match {
         case AGSuccess(~(t, u), next, _) =>
           AGSuccess[T](t, next, ans)
-        case AGFailure(msg1, next1) =>
-          AGFailure(msg1, next1)
+        case AGFailure(msg1, next1, ans1) =>
+          AGFailure(msg1, next1, ans1)
       }
     }
 
@@ -253,7 +253,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
       case (ans, input: Input) =>
         failure(s)(input) match {
           case Success(result, next) => AGSuccess[T](result, next, ans)
-          case NoSuccess(msg, next) => AGFailure(msg, next)
+          case NoSuccess(msg, next) => AGFailure(msg, next, ans)
         }
     }
   }
@@ -263,7 +263,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
     case (ans, input: Input) =>
       pars(input) match {
         case Success(result, next) => AGSuccess[T](result, next, ans) //pipe Answer through
-        case NoSuccess(msg, next) => AGFailure(msg, next)
+        case NoSuccess(msg, next) => AGFailure(msg, next, ans)
       }
   }
   //implicit def impLift(s:String) = lift(keyword(s)) //this doesn't work well
@@ -276,7 +276,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
             case AGSuccess(result2, next2, _) => AGSuccess(result1 :: result2, next2, ans)
             case fail => AGSuccess(result1 :: Nil, next1, ans)
           }
-        case AGFailure(msg1, next1) => AGSuccess(Nil, next1, ans) //rep parser always suceeds
+        case AGFailure(msg1, next1, _) => AGSuccess(Nil, next1, ans) //rep parser always suceeds worst case with Nil, don't propagate attribute env of failed parser
       }
   }
 
@@ -290,7 +290,7 @@ trait AGParsers extends StandardTokenParsers with AGSig {
             case AGSuccess(result2, next2, ans2) => AGSuccess(result1 :: result2, next1, ans2)
             case fail => AGSuccess(result1 :: Nil, next1, ans1) //should never happen?
           }
-        case AGFailure(msg1, next1) => AGSuccess(Nil, next1, ans)
+        case AGFailure(msg1, next1, _) => AGSuccess(Nil, next1, ans)
       }
   }
 

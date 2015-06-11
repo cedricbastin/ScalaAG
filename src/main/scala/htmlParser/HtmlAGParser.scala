@@ -18,10 +18,10 @@ rep => simply says “expect N-many repetitions of parser X” where X is the pa
 trait HtmlSig extends AGSig {
   def defAttr:Attr //default attribute
   def start(tag:String):(Attr, AttrEnv)
-  def end(tag:String, a:AttrEnv):(AttrEnv, Attr)
+  def end(tag:String, a:AttrEnv):(Attr, AttrEnv)
   def validate(tag:String, a:AttrEnv):Boolean
   def validateFull(syn:List[Attr], in:AttrEnv):Boolean
-  def collect(a:AttrEnv):(AttrEnv, Attr)
+  def collect(a:AttrEnv):(Attr, AttrEnv)
 }
 
 case class Container(tag:String, body:List[Container]) {
@@ -40,7 +40,7 @@ trait HtmlGrammar extends AGParsers with HtmlSig {
   def HtmlP:AGParser[List[Attr]] = {
     (repWithAns(Collect | End(ident) | Start(ident)) validate {
       case (list, inAttrs) => validateFull(list, inAttrs)
-    }) >>^^>> { (x, ans) => (ans, x) }
+    }) >>^^>> { (x, ans) => (x, ans) }
   }
 
   def Start(pars:Parser[String]): AGParser[Attr] = {
@@ -72,13 +72,13 @@ trait HtmlAlgebra extends HtmlSig {
 
   def start(tag:String):(Attr, AttrEnv) = (defAttr, Left(tag) :: Nil) //push stuff to head
 
-  def end(tag:String, a:AttrEnv):(AttrEnv, Attr) = {
+  def end(tag:String, a:AttrEnv):(Attr, AttrEnv) = {
     val (conts, tags) = a span {case Right(_) => true case _ => false} //collect all containers
     tags match {
       case Left(s) :: xs =>
         assert(s == tag) //validation should have been done beforehand
         val nx:Either[String, Container] = Right(Container(tag, conts.collect{ case Right(c) => c}))
-        (nx :: xs, defAttr)
+        (defAttr, nx :: xs)
       case _ => //should never happens
         assert(false)
         null
@@ -86,9 +86,9 @@ trait HtmlAlgebra extends HtmlSig {
   }
 
   //collect the last see container, you should know what it is
-  def collect(a:AttrEnv):(AttrEnv, Attr) = a match {
-    case Right(x) :: xs => (a, Some(x))
-    case _ => assert(false); (a, None) //
+  def collect(a:AttrEnv):(Attr, AttrEnv) = a match {
+    case Right(x) :: xs => (Some(x), a)
+    case _ => assert(false); (None, a) //
   }
 
   //validate that the string value of a closing tag corresponds to the last opening tag

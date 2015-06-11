@@ -59,7 +59,7 @@ trait RepMinGrammar extends AGParsers with RepMinSig {
   def TreeP:AGParser[Attr] = {NodeP | LeafP}
   def NodeP:AGParser[Attr] = {
     lift("(") >>~>> TreeP >>~>> ValP >>~>> TreeP >>~>> lift(")") >>^^>> {
-      case (s1 ~ a1 ~ a ~ a2 ~ s2, ans) => (ans, node(a1, a, a2))
+      case (s1 ~ a1 ~ a ~ a2 ~ s2, ans) => (node(a1, a, a2), ans)
     }
   }
   def LeafP:AGParser[Attr] = {
